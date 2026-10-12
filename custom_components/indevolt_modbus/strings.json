@@ -18,6 +18,15 @@
           "port": "Port",
           "unit_id": "Unit ID"
         }
+      },
+      "discovery_confirm": {
+        "title": "Set up discovered device",
+        "description": "An Indevolt HTTP service was found. Confirm that this is your device and enable Modbus server mode in the Indevolt app. Check the address, Modbus port and unit ID below; Modbus connectivity will be checked when you submit.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "unit_id": "Unit ID"
+        }
       }
     },
     "error": {
@@ -27,7 +36,8 @@
     "abort": {
       "already_configured": "This endpoint is already configured.",
       "reconfigure_successful": "Connection details updated."
-    }
+    },
+    "flow_title": "Indevolt Modbus ({host})"
   },
   "exceptions": {
     "write_failed": {

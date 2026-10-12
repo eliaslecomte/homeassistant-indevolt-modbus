@@ -12,6 +12,7 @@ from homeassistant.helpers.selector import (
     NumberSelectorMode,
     TextSelector,
 )
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from modbus_connection import ModbusError, ModbusTcpParams
 
 from .const import CONF_UNIT_ID, DEFAULT_PORT, DEFAULT_UNIT_ID, DOMAIN
@@ -41,6 +42,45 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle setup and changes to connection details."""
 
     VERSION = 1
+
+    _discovered_host: str | None = None
+
+    async def async_step_zeroconf(
+        self, discovery_info: ZeroconfServiceInfo
+    ) -> ConfigFlowResult:
+        """Offer an HTTP-advertised host as a candidate for Modbus setup."""
+        # The built-in HTTP integration uses this advertisement. It does not
+        # establish Modbus availability, its port, or a verified hardware ID.
+        await self._async_handle_discovery_without_unique_id()
+        self._discovered_host = str(discovery_info.ip_address)
+        self.context["title_placeholders"] = {"host": self._discovered_host}
+        return await self.async_step_discovery_confirm()
+
+    async def async_step_discovery_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm connection settings and validate Modbus before setup."""
+        errors = {}
+        if user_input is not None:
+            user_input[CONF_HOST] = user_input[CONF_HOST].strip().lower()
+            self._async_abort_entries_match(user_input)
+            if error := await self._validate(user_input):
+                errors["base"] = error
+            else:
+                return self.async_create_entry(title="Indevolt", data=user_input)
+        return self.async_show_form(
+            step_id="discovery_confirm",
+            data_schema=self.add_suggested_values_to_schema(
+                SCHEMA,
+                user_input
+                or {
+                    CONF_HOST: self._discovered_host,
+                    CONF_PORT: DEFAULT_PORT,
+                    CONF_UNIT_ID: DEFAULT_UNIT_ID,
+                },
+            ),
+            errors=errors,
+        )
 
     async def _validate(self, data: dict[str, Any]) -> str | None:
         try:

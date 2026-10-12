@@ -22,6 +22,25 @@ needed. This uses domain `indevolt_modbus`, separate from the built-in HTTP
 integration's `indevolt` domain. Existing HTTP configuration is not migrated.
 Avoid enabling competing controls against the same device while testing.
 
+## Automatic discovery
+
+For initial setup, Home Assistant can offer an Indevolt device advertising an
+`igen_fw*` HTTP service over mDNS (`_http._tcp.local.`). Confirm the suggested
+address and Modbus port/unit; setup checks Modbus only after you submit. The
+HTTP service port is not used as the Modbus port. Manual setup remains available
+when discovery is unavailable or you have more devices to add.
+
+This uses the matcher from Home Assistant's built-in HTTP integration, as a
+candidate address rather than proof of Modbus support. HTTP/OpenData may need
+to be enabled as well as Modbus TCP, and mDNS must reach Home Assistant. No
+device/firmware has yet been tested with this integration's discovery flow.
+Because Modbus does not yet provide a verified hardware identity here, Home
+Assistant's discovery-without-unique-ID helper offers only one initial flow,
+suppresses discovery once an entry exists, and supports ignoring the suggestion.
+It does not update addresses automatically or resolve hostname aliases.
+
+See [discovery research](docs/discovery.md) for evidence and remaining limitations.
+
 ## What is included
 
 - Power, battery SoC and energy sensors, plus optional diagnostic readings.
