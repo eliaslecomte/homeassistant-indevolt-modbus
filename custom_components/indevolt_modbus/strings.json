@@ -47,19 +47,19 @@
   "entity": {
     "sensor": {
       "ems_version_70": {
-        "name": "EMS Version"
+        "name": "EMS version"
       },
       "bms_master_version_71": {
-        "name": "BMS Master Version"
+        "name": "Main BMS version"
       },
       "inverter_version_72": {
-        "name": "Inverter Version"
+        "name": "Inverter version"
       },
       "mppt_version_73": {
-        "name": "MPPT Version"
+        "name": "MPPT version"
       },
       "maximum_mppt_channels_78": {
-        "name": "Maximum MPPT Channels"
+        "name": "Maximum MPPT channels"
       },
       "maximum_number_of_strings_80": {
         "name": "Maximum number of strings"
@@ -71,7 +71,7 @@
         "name": "Maximum active power"
       },
       "rated_capacity_wh_89": {
-        "name": "Rated Capacity（Wh）"
+        "name": "Rated capacity"
       },
       "maximum_charge_power_90": {
         "name": "Maximum charge power"
@@ -104,28 +104,28 @@
         "name": "BMS_slaver4_Version"
       },
       "aph_a_103": {
-        "name": "AphA"
+        "name": "Inverter AC current"
       },
       "ph_vph_a_110": {
-        "name": "PhVphA"
+        "name": "Inverter AC voltage"
       },
       "hz_116": {
-        "name": "Hz"
+        "name": "Inverter AC frequency"
       },
       "va_118": {
-        "name": "VA"
+        "name": "Inverter AC apparent output power"
       },
       "var_120": {
-        "name": "VAr"
+        "name": "AC reactive power"
       },
       "pf_122": {
-        "name": "PF"
+        "name": "Inverter AC output power factor"
       },
       "wh_124": {
-        "name": "WH"
+        "name": "Daily production"
       },
       "st_138": {
-        "name": "St",
+        "name": "System operating status",
         "state": {
           "1": "OFF",
           "2": "SLEEPING",
@@ -149,7 +149,7 @@
         "name": "Evt1"
       },
       "home_use_w_154": {
-        "name": "HomeUseW"
+        "name": "Home load power"
       },
       "ac_wh_input_170": {
         "name": "AC_WH_input"
@@ -182,50 +182,50 @@
         "name": "Deep Sleep stop Time hour-min"
       },
       "meter_state_1246": {
-        "name": "MeterState",
+        "name": "Meter connection state",
         "state": {
-          "0": "disconnect",
-          "1": "connect"
+          "0": "Disconnected",
+          "1": "Connected"
         }
       },
       "meter_pu_1247": {
-        "name": "MeterPu"
+        "name": "Meter phase U power"
       },
       "b_charge_energy_1269": {
-        "name": "B Charge Energy"
+        "name": "Battery total charging energy"
       },
       "b_dis_charge_energy_1271": {
-        "name": "B disCharge Energy"
+        "name": "Battery total discharging energy"
       },
       "charge_left_time_1282": {
-        "name": "ChargeLeftTime"
+        "name": "Remaining charging time"
       },
       "discharge_left_time_1283": {
-        "name": "DischargeLeftTime"
+        "name": "Remaining discharging time"
       },
       "acout_w_1284": {
         "name": "ACOutW"
       },
       "dca_2219": {
-        "name": "DCA"
+        "name": "DC input current 1"
       },
       "dcv_2220": {
-        "name": "DCV"
+        "name": "DC input voltage 1"
       },
       "dcw_2221": {
-        "name": "DCW"
+        "name": "DC input power 1"
       },
       "dcevt_2228": {
         "name": "DCEvt"
       },
       "dca_2239": {
-        "name": "DCA"
+        "name": "DC input current 2"
       },
       "dcv_2240": {
-        "name": "DCV"
+        "name": "DC input voltage 2"
       },
       "dcw_2241": {
-        "name": "DCW"
+        "name": "DC input power 2"
       },
       "dcst_2247": {
         "name": "DCSt",
@@ -245,16 +245,16 @@
         "name": "DCEvt"
       },
       "pv_total_power_2250": {
-        "name": "PV total power"
+        "name": "DC output power"
       },
       "dca_2260": {
-        "name": "DCA"
+        "name": "DC input current 3"
       },
       "dcv_2261": {
-        "name": "DCV"
+        "name": "DC input voltage 3"
       },
       "dcw_2262": {
-        "name": "DCW"
+        "name": "DC input power 3"
       },
       "dcst_2268": {
         "name": "DCSt",
@@ -274,13 +274,13 @@
         "name": "DCEvt"
       },
       "dca_2280": {
-        "name": "DCA"
+        "name": "DC input current 4"
       },
       "dcv_2281": {
-        "name": "DCV"
+        "name": "DC input voltage 4"
       },
       "dcw_2282": {
-        "name": "DCW"
+        "name": "DC input power 4"
       },
       "dcst_2288": {
         "name": "DCSt",
@@ -303,79 +303,79 @@
         "name": "SoH"
       },
       "ncyc_6008": {
-        "name": "NCyc"
+        "name": "Main cycles"
       },
       "v_6010": {
-        "name": "V"
+        "name": "Main voltage"
       },
       "cell_tmp_min_6018": {
-        "name": "CellTmpMin"
+        "name": "Main battery minimum cell temperature"
       },
       "a_6108": {
-        "name": "A"
+        "name": "Main current"
       },
       "so_h_6119": {
         "name": "SoH"
       },
       "ncyc_6120": {
-        "name": "NCyc"
+        "name": "Battery pack 1 cycles"
       },
       "v_6122": {
-        "name": "V"
+        "name": "Battery pack 1 voltage"
       },
       "cell_tmp_min_6130": {
-        "name": "CellTmpMin"
+        "name": "Battery pack 1 minimum cell temperature"
       },
       "a_6220": {
-        "name": "A"
+        "name": "Battery pack 1 current"
       },
       "so_h_6231": {
         "name": "SoH"
       },
       "ncyc_6232": {
-        "name": "NCyc"
+        "name": "Battery pack 2 cycles"
       },
       "v_6234": {
-        "name": "V"
+        "name": "Battery pack 2 voltage"
       },
       "cell_tmp_min_6242": {
-        "name": "CellTmpMin"
+        "name": "Battery pack 2 minimum cell temperature"
       },
       "a_6332": {
-        "name": "A"
+        "name": "Battery pack 2 current"
       },
       "so_h_6343": {
         "name": "SoH"
       },
       "ncyc_6344": {
-        "name": "NCyc"
+        "name": "Battery pack 3 cycles"
       },
       "v_6346": {
-        "name": "V"
+        "name": "Battery pack 3 voltage"
       },
       "cell_tmp_min_6354": {
-        "name": "CellTmpMin"
+        "name": "Battery pack 3 minimum cell temperature"
       },
       "a_6444": {
-        "name": "A"
+        "name": "Battery pack 3 current"
       },
       "so_h_6455": {
         "name": "SoH"
       },
       "ncyc_6456": {
-        "name": "NCyc"
+        "name": "Battery pack 4 cycles"
       },
       "v_6458": {
-        "name": "V"
+        "name": "Battery pack 4 voltage"
       },
       "cell_tmp_min_6466": {
-        "name": "CellTmpMin"
+        "name": "Battery pack 4 minimum cell temperature"
       },
       "a_6556": {
-        "name": "A"
+        "name": "Battery pack 4 current"
       },
       "battery_state_6563": {
-        "name": "BatteryState",
+        "name": "Battery charge/discharge state",
         "state": {
           "0": "Standby",
           "1": "Charging",
@@ -383,7 +383,7 @@
         }
       },
       "battery_power_6564": {
-        "name": "BatteryPower"
+        "name": "Battery power"
       },
       "dc_dc_state_6588": {
         "name": "DC/DC state",
@@ -395,7 +395,7 @@
         }
       },
       "electric_heating_state_6593": {
-        "name": "electric heating state",
+        "name": "Main electric heating state",
         "state": {
           "0": "OFF",
           "1": "ON"
@@ -417,7 +417,7 @@
         }
       },
       "electric_heating_state_6625": {
-        "name": "electric heating state",
+        "name": "Battery pack 1 electric heating state",
         "state": {
           "0": "OFF",
           "1": "ON"
@@ -439,7 +439,7 @@
         }
       },
       "electric_heating_state_6657": {
-        "name": "electric heating state",
+        "name": "Battery pack 2 electric heating state",
         "state": {
           "0": "OFF",
           "1": "ON"
@@ -461,7 +461,7 @@
         }
       },
       "electric_heating_state_6689": {
-        "name": "electric heating state"
+        "name": "Battery pack 3 electric heating state"
       },
       "electric_heating_temperature_6690": {
         "name": "electric heating temperature"
@@ -479,7 +479,7 @@
         }
       },
       "electric_heating_state_6721": {
-        "name": "electric heating state",
+        "name": "Battery pack 4 electric heating state",
         "state": {
           "0": "OFF",
           "1": "ON"
@@ -495,16 +495,16 @@
         "name": "SoH"
       },
       "ncyc_6731": {
-        "name": "NCyc"
+        "name": "Battery pack 5 cycles"
       },
       "v_6733": {
-        "name": "V"
+        "name": "Battery pack 5 voltage"
       },
       "cell_tmp_min_6741": {
-        "name": "CellTmpMin"
+        "name": "Battery pack 5 minimum cell temperature"
       },
       "a_6831": {
-        "name": "A"
+        "name": "Battery pack 5 current"
       },
       "dc_dc_state_6860": {
         "name": "DC/DC state",
@@ -515,7 +515,7 @@
         }
       },
       "electric_heating_state_6865": {
-        "name": "electric heating state",
+        "name": "Battery pack 5 electric heating state",
         "state": {
           "0": "OFF",
           "1": "ON"
@@ -703,11 +703,11 @@
         }
       },
       "system_parallel_mode_7241": {
-        "name": "system  Parallel mode",
+        "name": "Device mode",
         "state": {
-          "0": "Normal Mode",
-          "1": "Master Mode",
-          "2": "Slave Mode"
+          "0": "Standalone",
+          "1": "Cluster (main)",
+          "2": "Cluster (sub)"
         }
       },
       "system_parallel_type_7242": {
@@ -1283,16 +1283,16 @@
         "name": "ActInWh"
       },
       "pvt_wh_7512": {
-        "name": "PVtWh"
+        "name": "Cumulative production"
       },
       "day_b_charge_energy_7519": {
-        "name": "Day_B Charge Energy"
+        "name": "Battery daily charging energy"
       },
       "day_b_dis_charge_energy_7521": {
-        "name": "Day_B disCharge Energy"
+        "name": "Battery daily discharging energy"
       },
       "modbus_version_7534": {
-        "name": "Modbus Version"
+        "name": "Modbus version"
       },
       "off_grid_rated_voltage_7537": {
         "name": "Off Grid rated voltage"
@@ -1326,7 +1326,7 @@
         "name": "Day  Off_Grid output energy"
       },
       "bypass_power_7553": {
-        "name": "Bypass  power"
+        "name": "Bypass power"
       },
       "bypass_mode_7554": {
         "name": "Bypass  mode"
@@ -1341,28 +1341,28 @@
         "name": "Grid voltage"
       },
       "grid_voltage_7592": {
-        "name": "Grid voltage"
+        "name": "Grid frequency"
       },
       "master_pack_soc_7593": {
-        "name": "Master Pack SOC"
+        "name": "Main SOC"
       },
       "slave_pack1_soc_7594": {
-        "name": "Slave pack1 SOC"
+        "name": "Battery pack 1 SOC"
       },
       "slave_pack2_soc_7595": {
-        "name": "Slave pack2 SOC"
+        "name": "Battery pack 2 SOC"
       },
       "slave_pack3_soc_7596": {
-        "name": "Slave pack3 SOC"
+        "name": "Battery pack 3 SOC"
       },
       "slave_pack4_soc_7597": {
-        "name": "Slave pack4 SOC"
+        "name": "Battery pack 4 SOC"
       },
       "slave_pack5_soc_7598": {
-        "name": "Slave pack5 SOC"
+        "name": "Battery pack 5 SOC"
       },
       "total_soc_full_system_so_c_7599": {
-        "name": "Total SOC(Full-system SoC)"
+        "name": "Battery SOC"
       },
       "no_fully_charge_time_7600": {
         "name": "no fully charge time"
@@ -1376,28 +1376,28 @@
     },
     "number": {
       "accharge_speed_1138": {
-        "name": "ACchargeSpeed"
+        "name": "Inverter input limit"
       },
       "back_up_soc_1142": {
-        "name": "BackUpSoc"
+        "name": "Discharge limit"
       },
       "feed_back_power_1146": {
-        "name": "FeedBack Power"
+        "name": "Feed-in power limit"
       },
       "ac_max_discharge_power_1147": {
-        "name": "AC max discharge power"
+        "name": "Max AC output power"
       },
       "realtime_control_power_1151": {
-        "name": "Realtime Control Power"
+        "name": "Real-time control power"
       },
       "realtime_control_end_soc_1152": {
-        "name": "Realtime Control end SOC"
+        "name": "Real-time target SOC"
       },
       "off_gird_back_up_soc_1154": {
-        "name": "OffGird BackUpSoc"
+        "name": "Off-grid backup SOC"
       },
       "force_full_charge_interval_7268": {
-        "name": "Force Full Charge Interval"
+        "name": "Forced full charge interval"
       },
       "forced_ac_charge_power_7270": {
         "name": "Forced AC charge power"
@@ -1405,36 +1405,36 @@
     },
     "select": {
       "system_mode_1144": {
-        "name": "SystemMode",
+        "name": "Energy mode",
         "state": {
           "1": "Self-consumption",
-          "4": "Realtime Control",
-          "6": "User-defined Time Control"
+          "4": "Real-time control",
+          "6": "Charge/discharge schedule"
         }
       },
       "realtime_control_order_1150": {
-        "name": "Realtime Control Order",
+        "name": "Real-time command",
         "state": {
-          "0": "DEFAULT",
-          "1": "CHARGE",
-          "2": "DISCHAGE"
+          "0": "Default",
+          "1": "Charge",
+          "2": "Discharge"
         }
       },
       "led_light_strip_enable_7265": {
-        "name": "LED light strip enable",
+        "name": "LED indicator",
         "state": {
-          "0": "Turn off LED strip",
-          "1": "Turn on LED strip",
-          "2": "LED strip low power mode (half brightness)"
+          "0": "Off",
+          "1": "On",
+          "2": "Half brightness"
         }
       }
     },
     "switch": {
       "grid_charge_enable_1143": {
-        "name": "GridChargeEnable"
+        "name": "Allow grid charging"
       },
       "bypass_enable_7266": {
-        "name": "Bypass enable"
+        "name": "Bypass socket"
       },
       "key_load_enable_7267": {
         "name": "key load enable"

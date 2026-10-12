@@ -53,6 +53,8 @@ New sensor and control defaults follow confirmed equivalents in the built-in HTT
 integration. Eight controls start enabled; diagnostic and other optional entities
 start disabled. See the [sensor mapping](docs/sensor-defaults.md) and
 [configuration/diagnostic mapping and polling impact](docs/entity-defaults.md).
+English display names follow verified meanings while retaining original Modbus
+identifiers. See the [original-to-display-name mapping](docs/display-names.md).
 Existing entity settings are preserved. Enable
 the ones needed for your model in the entity settings. Only enabled entities'
 components are polled.
