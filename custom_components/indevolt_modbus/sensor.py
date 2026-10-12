@@ -22,7 +22,23 @@ UNITS = {
     "Hz": SensorDeviceClass.FREQUENCY,
     "°C": SensorDeviceClass.TEMPERATURE,
 }
-DEFAULT_ADDRESSES = {2250, 174, 6564, 7599, 7593, 1284, 1269, 1271, 124, 7512}
+# Semantic matches to the built-in HTTP integration's enabled sensors.
+# See indevolt-hacs/docs/sensor-defaults.md for sources and ambiguous matches.
+# Registry defaults apply only when HA creates an entity; never migrate choices.
+DEFAULT_ADDRESSES = {
+    89,  # System rated battery capacity (Wh).
+    124,  # Daily PV generation (Wh).
+    1269,  # Total battery charging energy (Wh).
+    1271,  # Total battery discharging energy (Wh).
+    2250,  # Total PV power (W).
+    6563,  # Overall battery charging/discharging state.
+    6564,  # Total battery power (W).
+    7512,  # Total PV generation (Wh).
+    7519,  # Daily battery charging energy (Wh).
+    7521,  # Daily battery discharging energy (Wh).
+    7553,  # Bypass power (W).
+    7599,  # Full-system SOC (%), available from protocol V1.8.
+}
 
 
 async def async_setup_entry(

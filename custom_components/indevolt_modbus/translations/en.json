@@ -1443,5 +1443,16 @@
         "name": "CounterCurrentCharge"
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Polling settings",
+        "description": "Set the wait between completed polling cycles (5–3600 seconds). The default is 30 seconds. Requests within each cycle remain spaced by five seconds, so actual updates can take longer. Saving reloads the integration.",
+        "data": {
+          "scan_interval": "Polling interval"
+        }
+      }
+    }
   }
 }

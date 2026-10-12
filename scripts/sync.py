@@ -67,7 +67,7 @@ def main() -> None:
             data.update(
                 domain="indevolt_modbus",
                 name="Indevolt Modbus",
-                version="0.1.0",
+                version=previous.get("version", "0.1.0"),
                 requirements=["modbus-connection[tmodbus]>=4.12.4"],
                 documentation="https://docs.indevolt.com/docs/hardware/open-data/modbus/",
                 loggers=["modbus_connection", "tmodbus"],

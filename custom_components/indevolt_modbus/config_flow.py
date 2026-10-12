@@ -3,8 +3,14 @@
 from typing import Any
 
 import probatio
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL
+from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import (
     NumberSelector,
@@ -15,7 +21,7 @@ from homeassistant.helpers.selector import (
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from modbus_connection import ModbusError, ModbusTcpParams
 
-from .const import CONF_UNIT_ID, DEFAULT_PORT, DEFAULT_UNIT_ID, DOMAIN
+from .const import CONF_UNIT_ID, DEFAULT_PORT, DEFAULT_UNIT_ID, DOMAIN, SCAN_INTERVAL
 from .transport import async_get_temporary_unit
 from .vendor.indevolt_modbus import IndevoltDevice
 
@@ -42,6 +48,12 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle setup and changes to connection details."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> IndevoltOptionsFlow:
+        """Expose polling settings for each device."""
+        return IndevoltOptionsFlow()
 
     _discovered_host: str | None = None
 
@@ -133,4 +145,41 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             data_schema=self.add_suggested_values_to_schema(SCHEMA, entry.data),
             errors=errors,
+        )
+
+
+class IndevoltOptionsFlow(OptionsFlowWithReload):
+    """Configure the wait between completed polling cycles."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Save polling settings and reload to apply the new schedule."""
+        if user_input is not None:
+            return self.async_create_entry(
+                data={**self.config_entry.options, **user_input}
+            )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=probatio.Schema(
+                {
+                    probatio.Required(
+                        CONF_SCAN_INTERVAL,
+                        default=self.config_entry.options.get(
+                            CONF_SCAN_INTERVAL, SCAN_INTERVAL
+                        ),
+                    ): probatio.All(
+                        NumberSelector(
+                            NumberSelectorConfig(
+                                min=5,
+                                max=3600,
+                                step=1,
+                                unit_of_measurement="s",
+                                mode=NumberSelectorMode.BOX,
+                            )
+                        ),
+                        probatio.Coerce(int),
+                    ),
+                }
+            ),
         )

@@ -49,9 +49,16 @@ See [discovery research](docs/discovery.md) for evidence and remaining limitatio
 - Firmware protocol gates, component-level availability and write readback.
 - Reconfiguration, diagnostics, unload cleanup and tests on a real HA runtime.
 
-Most entities and every control start disabled. Enable the ones needed for your
-model in the entity settings. Only enabled entities' components are polled.
-Requests are spaced by five seconds; each poll is followed by a 30-second wait.
+New sensor defaults follow confirmed equivalents in the built-in HTTP integration;
+most sensors and every control start disabled. See the [sensor mapping and polling
+impact](docs/sensor-defaults.md). Existing entity settings are preserved. Enable
+the ones needed for your model in the entity settings. Only enabled entities'
+components are polled.
+Requests are spaced by five seconds; each poll is followed by a 30-second wait
+by default. Change **Polling interval** under **Settings → Devices & services →
+Indevolt Modbus → Configure** for each device (5–3600 seconds). Saving reloads
+the integration. This setting changes the wait after a polling cycle; the
+five-second spacing between requests within a cycle remains unchanged.
 Many enabled entities can therefore make updates take several minutes.
 
 The new core Modbus API is used automatically when present. On 2026.10.1, which
@@ -109,8 +116,7 @@ with `@eliaslecomte` as codeowner. Before a GitHub release, run both validation
 workflows. To change repository ownership later, run
 `python scripts/configure_repository.py OWNER REPOSITORY`. HACS validation includes
 the bundled brand images.
-Tag releases to match `custom_components/indevolt_modbus/manifest.json` (initially
-`0.1.0`). HACS can install the repository directly; no zip release is required.
+Tag releases to match `custom_components/indevolt_modbus/manifest.json`. HACS can install the repository directly; no zip release is required.
 
 ## Brand images
 
