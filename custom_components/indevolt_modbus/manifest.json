@@ -19,7 +19,7 @@
   "requirements": [
     "modbus-connection[tmodbus]>=4.12.4"
   ],
-  "version": "0.1.0",
+  "version": "0.1.1",
   "zeroconf": [
     {
       "name": "igen_fw*",

@@ -207,3 +207,15 @@ async def test_reconfigure_errors(hass, unit, duplicate):
             assert result["type"] is FlowResultType.FORM
             assert result["errors"] == {"base": "cannot_connect"}
         assert entry.data == DATA
+
+
+async def test_diagnostics_before_setup(hass):
+    from custom_components.indevolt_modbus.diagnostics import (
+        async_get_config_entry_diagnostics,
+    )
+
+    entry = MockConfigEntry(domain=DOMAIN, data=DATA, title="Indevolt")
+    entry.add_to_hass(hass)
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics == {"setup_complete": False, "state": "not_loaded"}
+    assert DATA["host"] not in str(diagnostics)
