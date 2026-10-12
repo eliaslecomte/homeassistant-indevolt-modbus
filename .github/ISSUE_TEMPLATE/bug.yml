@@ -1,0 +1,20 @@
+name: Device compatibility report
+description: Report a Modbus problem or a successful hardware test
+body:
+  - type: textarea
+    id: device
+    attributes:
+      label: Model, firmware and protocol version
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics and redacted logs
+      description: Remove IP addresses, serial numbers and other identifying data before posting.

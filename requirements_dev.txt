@@ -1,0 +1,8 @@
+-r requirements_common.txt
+-r requirements_lint.txt
+homeassistant==2026.10.1
+pytest-homeassistant-custom-component==0.13.372
+pytest-cov
+
+# Imported by the Modbus dependency during tests; HA requirement installs are mocked.
+pymodbus==3.13.1
