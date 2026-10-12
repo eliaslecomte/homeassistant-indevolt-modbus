@@ -45,7 +45,8 @@ support remains forthcoming.
 ## Community test status and known limits
 
 Automated tests cover decoding, writes, config flow, polling, reconfiguration
-and cleanup. No real device has been tested. Consult the vendor's
+and cleanup. Read-only setup and polling have been tested on a CMS-SF2000 with protocol V2.4.
+Other models and device controls still need hardware testing. Consult the vendor's
 [firmware and device table](https://docs.indevolt.com/docs/hardware/open-data/modbus/)
 before testing. This integration cannot confirm product model or hardware
 identity: the register source omits string lengths. Entry IDs keep entity IDs
@@ -103,3 +104,10 @@ These images are unchanged copies of the existing Indevolt assets from the
 Product names, trademarks and logos remain the property of their respective
 owners. They identify supported devices and do not imply manufacturer endorsement.
 The integration's MIT license does not relicense these trademarks or images.
+
+### Idle connection recovery
+
+Some device firmware closes TCP connections around the five-second request
+interval. A disconnected holding-register read is retried once after waiting
+for the pacing interval, allowing the backend to reconnect immediately before
+sending. Writes are never replayed automatically.

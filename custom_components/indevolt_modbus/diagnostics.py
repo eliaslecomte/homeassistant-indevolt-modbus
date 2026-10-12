@@ -11,7 +11,9 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: IndevoltConfigEntry
 ) -> dict[str, Any]:
     """Report supported and failed subsystems without identifying information."""
-    coordinator = entry.runtime_data
+    coordinator = getattr(entry, "runtime_data", None)
+    if coordinator is None or coordinator.data is None:
+        return {"setup_complete": False, "state": entry.state.value}
     return {
         "protocol_version": coordinator.device.protocol_version,
         "components": sorted(coordinator.device.components),
