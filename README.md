@@ -85,9 +85,21 @@ Do not change the vendored package directly. It is copied without import-path
 rewrites; relative imports keep it isolated from installed device packages.
 
 Repository metadata is configured for `eliaslecomte/homeassistant-indevolt-modbus`,
-with `@eliaslecomte` as codeowner. Before the first GitHub release, add brand assets
-and run both validation workflows. To change repository ownership later, run
-`python scripts/configure_repository.py OWNER REPOSITORY`. The HACS workflow temporarily skips only brand validation, following
-the blueprint.
+with `@eliaslecomte` as codeowner. Before a GitHub release, run both validation
+workflows. To change repository ownership later, run
+`python scripts/configure_repository.py OWNER REPOSITORY`. HACS validation includes
+the bundled brand images.
 Tag releases to match `custom_components/indevolt_modbus/manifest.json` (initially
 `0.1.0`). HACS can install the repository directly; no zip release is required.
+
+## Brand images
+
+The integration bundles Indevolt icons and logos in `brand/`, with light/dark
+and standard/high-resolution variants. Home Assistant serves these locally;
+local brand images are supported since Home Assistant 2026.3.
+
+These images are unchanged copies of the existing Indevolt assets from the
+[Home Assistant brands repository](https://github.com/home-assistant/brands/tree/ba54a5eb87172d6f20b74741e4a96335f94cbd1c/core_integrations/indevolt).
+Product names, trademarks and logos remain the property of their respective
+owners. They identify supported devices and do not imply manufacturer endorsement.
+The integration's MIT license does not relicense these trademarks or images.
