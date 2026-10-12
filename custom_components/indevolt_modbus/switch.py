@@ -10,8 +10,14 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import SWITCH_ADDRESSES
 from .coordinator import IndevoltConfigEntry
 from .entity import IndevoltEntity
+from .vendor.indevolt_modbus import Register
 
 PARALLEL_UPDATES = 1
+# Confirmed equivalents of core HTTP controls; see docs/entity-defaults.md.
+DEFAULT_ADDRESSES = {
+    1143,  # Grid charging.
+    7266,  # Bypass.
+}
 
 
 async def async_setup_entry(
@@ -31,7 +37,12 @@ class IndevoltSwitch(IndevoltEntity, SwitchEntity):
     """An explicit zero/one register switch."""
 
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, entry: IndevoltConfigEntry, register: Register) -> None:
+        super().__init__(entry, register)
+        self._attr_entity_registry_enabled_default = (
+            register.address in DEFAULT_ADDRESSES
+        )
 
     @property
     def is_on(self) -> bool | None:

@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from homeassistant.const import EntityCategory
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -10,13 +11,21 @@ from custom_components.indevolt_modbus.vendor.indevolt_modbus import REGISTERS
 
 DOMAIN = "indevolt_modbus"
 PREFIX = "custom_components.indevolt_modbus"
-EXPECTED = {89, 124, 1269, 1271, 2250, 6563, 6564, 7512, 7519, 7521, 7553, 7599}
+EXPECTED_SENSORS = {89, 124, 1269, 1271, 2250, 6563, 6564, 7512, 7519, 7521, 7553, 7599}
+EXPECTED_CONTROLS = {
+    "number": {1138, 1142, 1146, 1147},
+    "select": {1144, 7265},
+    "switch": {1143, 7266},
+}
+EXPECTED = EXPECTED_SENSORS | set().union(*EXPECTED_CONTROLS.values())
 
 
 @pytest.mark.parametrize("version", [17, 19])
 async def test_new_entity_defaults_and_polling(hass, unit, version):
     """Only semantic matches start enabled, with protocol gates still applied."""
     unit.holding[7534] = version
+    writes = []
+    unit.on_write(writes.append)
     entry = MockConfigEntry(
         domain=DOMAIN, data={"host": "192.0.2.10", "port": 8899, "unit_id": 1}
     )
@@ -33,7 +42,15 @@ async def test_new_entity_defaults_and_polling(hass, unit, version):
             if r.address in EXPECTED and r.minimum_version <= version
         ]
         assert enabled == {f"{entry.entry_id}_{r.key}" for r in expected_registers}
-        assert all(e.domain == "sensor" for e in entities if e.disabled_by is None)
+        by_key = {r.key: r for r in REGISTERS}
+        for entity in entities:
+            register = by_key[entity.unique_id.removeprefix(f"{entry.entry_id}_")]
+            if entity.domain in EXPECTED_CONTROLS:
+                assert entity.entity_category is EntityCategory.CONFIG
+                assert (entity.disabled_by is None) == (
+                    register.address in EXPECTED_CONTROLS[entity.domain]
+                )
+        assert not writes
         coordinator = entry.runtime_data
         components = {r.component for r in expected_registers}
         assert set(coordinator.async_contexts()) == components
@@ -41,7 +58,7 @@ async def test_new_entity_defaults_and_polling(hass, unit, version):
         await coordinator.async_refresh()
         assert coordinator.data.updated == components
         # Real model/transport read count, including disabled sibling fields.
-        assert len(unit.read_events) == (28 if version == 17 else 30)
+        assert len(unit.read_events) == (52 if version == 17 else 56)
         assert coordinator.update_interval.total_seconds() == 30
         assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -76,6 +93,10 @@ async def test_existing_registry_choices_survive(hass, unit, disabled_by):
             await hass.async_block_till_done()
             assert registry.async_get(capacity.entity_id).disabled_by is disabled_by
             assert registry.async_get(pack_soc.entity_id).disabled_by is None
+            assert (
+                registry.async_get(pack_soc.entity_id).entity_category
+                is EntityCategory.DIAGNOSTIC
+            )
             assert "battery_info" not in set(entry.runtime_data.async_contexts())
             assert "battery_0_soc" in set(entry.runtime_data.async_contexts())
             assert await hass.config_entries.async_unload(entry.entry_id)

@@ -11,6 +11,13 @@ from .entity import IndevoltEntity
 from .vendor.indevolt_modbus import Register
 
 PARALLEL_UPDATES = 1
+# Confirmed equivalents of core HTTP controls; see docs/entity-defaults.md.
+DEFAULT_ADDRESSES = {
+    1138,  # Inverter input limit.
+    1142,  # Discharge limit / backup SOC.
+    1146,  # Feed-in power limit.
+    1147,  # Maximum AC output power.
+}
 
 
 async def async_setup_entry(
@@ -32,10 +39,12 @@ class IndevoltNumber(IndevoltEntity, NumberEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_mode = NumberMode.BOX
     _attr_native_step = 1
-    _attr_entity_registry_enabled_default = False
 
     def __init__(self, entry: IndevoltConfigEntry, register: Register) -> None:
         super().__init__(entry, register)
+        self._attr_entity_registry_enabled_default = (
+            register.address in DEFAULT_ADDRESSES
+        )
         self._attr_native_min_value, self._attr_native_max_value = NUMBER_RANGES[
             register.address
         ]

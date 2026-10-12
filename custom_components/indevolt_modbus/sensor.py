@@ -40,6 +40,43 @@ DEFAULT_ADDRESSES = {
     7599,  # Full-system SOC (%), available from protocol V1.8.
 }
 
+# Confirmed core diagnostic families retain their existing sensor identities,
+# including HTTP binary sensors represented here as enum/numeric sensors.
+DIAGNOSTIC_ADDRESSES = {
+    1246,  # Meter connectivity.
+    6008,
+    6120,
+    6232,
+    6344,
+    6456,
+    6731,  # Per-pack cycle counts.
+    6010,
+    6122,
+    6234,
+    6346,
+    6458,
+    6733,  # Per-pack voltage.
+    6108,
+    6220,
+    6332,
+    6444,
+    6556,
+    6831,  # Per-pack current.
+    6593,
+    6625,
+    6657,
+    6689,
+    6721,
+    6865,  # Per-pack heater state.
+    7241,  # Standalone/master/slave cluster role (not energy mode).
+    7593,
+    7594,
+    7595,
+    7596,
+    7597,
+    7598,  # Per-pack SOC, not system SOC.
+}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -63,7 +100,11 @@ class IndevoltSensor(IndevoltEntity, SensorEntity):
         self._attr_entity_registry_enabled_default = (
             register.address in DEFAULT_ADDRESSES
         )
-        if register.group in {"Info", "Event"}:
+        if register.address != 89 and (
+            register.group in {"Info", "Event"}
+            or register.address in DIAGNOSTIC_ADDRESSES
+            or register.unit == "°C"
+        ):
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
         if register.options:
             self._attr_device_class = SensorDeviceClass.ENUM

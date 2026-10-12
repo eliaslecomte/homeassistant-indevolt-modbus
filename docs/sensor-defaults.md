@@ -47,7 +47,7 @@ not the full-system measurement.
 
 | Upstream sensor | HTTP key | Candidate / decision |
 | --- | --- | --- |
-| Energy mode | 7101 | Modbus 1144 is already a select control; mode codes also differ. Keep control defaults unchanged; do not add a duplicate sensor. |
+| Energy mode | 7101 | Modbus 1144 is already a select control; mode codes also differ. No duplicate sensor; see the subsequent control-default mapping. |
 | Discharge limit (generation 1) | 6105 | Backup SOC controls 1142/1154 are candidates, but generation and on/off-grid semantics need confirmation. No sensor added. |
 | Realtime command | 6107 | Modbus 1150 is already a select control; no duplicate sensor. |
 | Realtime target SOC | 6108 | Modbus 1152 is already a number control; no duplicate sensor. |
@@ -77,7 +77,14 @@ Compared with the old defaults, add 89, 6563, 7519, 7521 and 7553; remove 174,
 not enabled as a substitute. The two removed AC power defaults have ambiguous
 scope as described above.
 
-## Existing entities and polling impact
+## Sensor-only alignment in release 0.1.2
+
+The following describes the sensor-only changes shipped in 0.1.2. Subsequent
+[configuration and diagnostic alignment](entity-defaults.md) enables eight
+control defaults and updates diagnostic categories; that document gives current
+polling counts.
+
+### Existing entities and polling impact
 
 Only `entity_registry_enabled_default` changes. No entity-registry migration or
 update is performed. Existing enabled entities stay enabled, and both user-disabled

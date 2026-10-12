@@ -49,9 +49,11 @@ See [discovery research](docs/discovery.md) for evidence and remaining limitatio
 - Firmware protocol gates, component-level availability and write readback.
 - Reconfiguration, diagnostics, unload cleanup and tests on a real HA runtime.
 
-New sensor defaults follow confirmed equivalents in the built-in HTTP integration;
-most sensors and every control start disabled. See the [sensor mapping and polling
-impact](docs/sensor-defaults.md). Existing entity settings are preserved. Enable
+New sensor and control defaults follow confirmed equivalents in the built-in HTTP
+integration. Eight controls start enabled; diagnostic and other optional entities
+start disabled. See the [sensor mapping](docs/sensor-defaults.md) and
+[configuration/diagnostic mapping and polling impact](docs/entity-defaults.md).
+Existing entity settings are preserved. Enable
 the ones needed for your model in the entity settings. Only enabled entities'
 components are polled.
 Requests are spaced by five seconds; each poll is followed by a 30-second wait
