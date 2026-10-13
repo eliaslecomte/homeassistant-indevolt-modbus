@@ -47,7 +47,7 @@ class IndevoltSwitch(IndevoltEntity, SwitchEntity):
     @property
     def is_on(self) -> bool | None:
         """Treat unknown codes as unknown, rather than truthy."""
-        value = self.coordinator.device.value(self.register)
+        value = self.coordinator.value(self.register)
         return bool(value) if value in (0, 1) else None
 
     async def async_turn_on(self, **kwargs: Any) -> None:

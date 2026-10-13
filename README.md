@@ -55,15 +55,38 @@ start disabled. See the [sensor mapping](docs/sensor-defaults.md) and
 [configuration/diagnostic mapping and polling impact](docs/entity-defaults.md).
 English display names follow verified meanings while retaining original Modbus
 identifiers. See the [original-to-display-name mapping](docs/display-names.md).
-Existing entity settings are preserved. Enable
-the ones needed for your model in the entity settings. Only enabled entities'
-components are polled.
-Requests are spaced by five seconds; each poll is followed by a 30-second wait
-by default. Change **Polling interval** under **Settings → Devices & services →
-Indevolt Modbus → Configure** for each device (5–3600 seconds). Saving reloads
-the integration. This setting changes the wait after a polling cycle; the
-five-second spacing between requests within a cycle remains unchanged.
-Many enabled entities can therefore make updates take several minutes.
+Existing entity settings are preserved. Enable the entities needed for your model
+in their entity settings. Only enabled fields are polled; adjacent selected fields
+within a subsystem share a request without reading undocumented gaps. Each result
+is published immediately instead of waiting for a full cycle.
+
+Under **Settings → Devices & services → Indevolt Modbus → Configure**:
+
+| Setting | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| Regular polling interval | 30 s | 5–3600 s | Wait after each regular register group's completed read |
+| Battery power polling interval | 0 (off) | 0–3600 s | Separate priority interval for battery power (6564); 0 uses regular polling |
+| Minimum spacing between requests | 5 s | 1–60 s | Shared pacing for reads and writes |
+
+Fast polling uses the existing battery power entity; it does not create a duplicate
+or enable a disabled entity. SOC remains on regular polling. Saving reloads the
+integration. Existing regular interval settings are preserved.
+
+All intervals are best-effort targets. One worker serializes operations, prioritizes
+writes plus their targeted readbacks, and interleaves fast reads with regular work.
+At least one due regular request gets a turn between fast reads. Response time,
+pacing, connection recovery, and writes can extend the observed interval. A 2-second
+battery target with 5-second pacing cannot produce 2-second updates. The manufacturer
+recommends at least 5 seconds between requests and supports a minimum of 1 second;
+faster pacing requires hardware testing. Changing a setting no longer requests a
+full telemetry refresh. Writes are never automatically replayed.
+
+Failures affect only the fields in that request and are retried with backoff.
+Values older than the greater of three polling intervals or four times
+(request spacing + 2 seconds) are treated as stale. Diagnostics include field ages
+and the last 100 read durations **including pacing and recovery**, not just wire
+response latency. Default V1.9 entities require 18 reads instead of 56 (V1.7: 17
+instead of 52). The priority scheduler and faster pacing still need live validation.
 
 The new core Modbus API is used automatically when present. On 2026.10.1, which
 does not expose that API, this integration owns its connection and closes it on

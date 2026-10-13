@@ -157,7 +157,9 @@ async def test_partial_availability_and_diagnostics(hass, unit):
         assert battery.available
         diagnostics = await async_get_config_entry_diagnostics(hass, entry)
         assert diagnostics["protocol_version"] == 19
-        assert diagnostics["failed"] == {"pv_real_time_data": "IllegalDataAddressError"}
+        assert diagnostics["failed"] == {
+            "pv_total_power_2250": "IllegalDataAddressError"
+        }
         assert DATA["host"] not in str(diagnostics)
         unit.fail_read(2250, None)
         await coordinator.async_refresh()

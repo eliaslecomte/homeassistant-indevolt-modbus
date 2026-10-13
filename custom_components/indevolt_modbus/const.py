@@ -5,6 +5,9 @@ CONF_UNIT_ID = "unit_id"
 DEFAULT_PORT = 8899
 DEFAULT_UNIT_ID = 1
 SCAN_INTERVAL = 30
+CONF_FAST_POLL_INTERVAL = "fast_poll_interval"
+CONF_MESSAGE_SPACING = "message_spacing"
+MESSAGE_SPACING = 5
 # Controls with documented meanings and useful user-facing ranges.
 NUMBER_RANGES = {
     1138: (100, 10800),

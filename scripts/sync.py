@@ -42,12 +42,9 @@ def main() -> None:
             )
             content = content[:start] + guarded + content[end:]
             content = content.replace(
-                "return await hass.config_entries.async_unload_platforms"
-                "(entry, PLATFORMS)",
-                "if not await hass.config_entries.async_unload_platforms"
-                "(entry, PLATFORMS):\n"
-                "        return False\n    await async_release_unit(hass, entry)\n"
-                "    return True",
+                "    await entry.runtime_data.async_shutdown()\n    return True",
+                "    await entry.runtime_data.async_shutdown()\n"
+                "    await async_release_unit(hass, entry)\n    return True",
             )
             content = content.replace(
                 "from .transport import async_get_unit",

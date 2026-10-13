@@ -112,3 +112,10 @@ after each cycle.
 Tests exercise new registry defaults and firmware gates, exact coordinator
 contexts/read counts, all controls staying disabled, and preservation of
 existing enabled and disabled choices through unload/setup.
+
+## Selective polling update
+
+The whole-component polling counts above describe the previous scheduler. Current
+polling reads enabled register fields only and publishes each request immediately.
+See [entity defaults](entity-defaults.md#existing-installations-and-polling) for
+current request counts and the README for the optional fast battery power setting.

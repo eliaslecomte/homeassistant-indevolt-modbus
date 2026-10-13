@@ -41,7 +41,7 @@
   },
   "exceptions": {
     "write_failed": {
-      "message": "The device rejected the setting or could not be reached."
+      "message": "The setting could not be applied or confirmed. Check the current device state before retrying."
     }
   },
   "entity": {
@@ -1448,9 +1448,11 @@
     "step": {
       "init": {
         "title": "Polling settings",
-        "description": "Set the wait between completed polling cycles (5–3600 seconds). The default is 30 seconds. Requests within each cycle remain spaced by five seconds, so actual updates can take longer. Saving reloads the integration.",
+        "description": "Regular registers are refreshed independently. Fast battery power polling is optional (0 disables it). Intervals are targets; all requests share one connection. Request spacing defaults to the manufacturer recommendation of 5 seconds; the minimum is 1 second. Response times, writes and regular reads can delay fast updates. Saving reloads the integration.",
         "data": {
-          "scan_interval": "Polling interval"
+          "scan_interval": "Regular polling interval",
+          "fast_poll_interval": "Battery power polling interval (0 = regular polling)",
+          "message_spacing": "Minimum spacing between requests"
         }
       }
     }

@@ -53,7 +53,7 @@ class IndevoltNumber(IndevoltEntity, NumberEntity):
     @property
     def native_value(self) -> float | None:
         """Return the last value read from the device."""
-        return self.coordinator.device.value(self.register)
+        return self.coordinator.value(self.register)
 
     async def async_set_native_value(self, value: float) -> None:
         """Write and refresh the setting."""

@@ -123,5 +123,5 @@ class IndevoltSensor(IndevoltEntity, SensorEntity):
     @property
     def native_value(self) -> int | float | str | None:
         """Return the decoded value, including None for unknown codes."""
-        value = self.coordinator.device.value(self.register)
+        value = self.coordinator.value(self.register)
         return str(int(value)) if value is not None and self.register.options else value

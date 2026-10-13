@@ -52,14 +52,14 @@ async def test_new_entity_defaults_and_polling(hass, unit, version):
                 )
         assert not writes
         coordinator = entry.runtime_data
-        components = {r.component for r in expected_registers}
+        components = {r.key for r in expected_registers}
         assert set(coordinator.async_contexts()) == components
         unit.read_events.clear()
         await coordinator.async_refresh()
         assert coordinator.data.updated == components
-        # Real model/transport read count, including disabled sibling fields.
-        assert len(unit.read_events) == (52 if version == 17 else 56)
-        assert coordinator.update_interval.total_seconds() == 30
+        # Only enabled fields are read; adjacent selected fields share a request.
+        assert len(unit.read_events) == (17 if version == 17 else 18)
+        assert coordinator.regular_interval == 30
         assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -97,6 +97,6 @@ async def test_existing_registry_choices_survive(hass, unit, disabled_by):
                 registry.async_get(pack_soc.entity_id).entity_category
                 is EntityCategory.DIAGNOSTIC
             )
-            assert "battery_info" not in set(entry.runtime_data.async_contexts())
-            assert "battery_0_soc" in set(entry.runtime_data.async_contexts())
+            assert registers[89].key not in set(entry.runtime_data.async_contexts())
+            assert registers[7593].key in set(entry.runtime_data.async_contexts())
             assert await hass.config_entries.async_unload(entry.entry_id)

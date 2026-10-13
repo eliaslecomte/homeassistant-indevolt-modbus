@@ -46,7 +46,7 @@ class IndevoltSelect(IndevoltEntity, SelectEntity):
     @property
     def current_option(self) -> str | None:
         """Return a stable translation token for the current code."""
-        value = self.coordinator.device.value(self.register)
+        value = self.coordinator.value(self.register)
         return None if value is None else str(int(value))
 
     async def async_select_option(self, option: str) -> None:

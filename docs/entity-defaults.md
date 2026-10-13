@@ -95,20 +95,18 @@ without changing these choices. There is no registry migration, domain conversio
 new control or duplicate poller. An existing installation must manually enable
 any of the newly default-enabled controls it wants to use.
 
-A fresh V1.9 entry now has 20 enabled entities (12 sensors, eight controls). Its
-14 component contexts issue 56 holding-register reads per cycle, compared with
-seven contexts and 30 reads in 0.1.2. At five-second request spacing and the
-default 30-second post-cycle wait, the estimated minimum cycle time is about
-305 seconds instead of 175 seconds, before response time, retries and scheduling
-(overall +26 reads, about +130 seconds). Diagnostics add no default polling.
-V1.7 has 19 enabled entities and 52 reads because firmware gates exclude fields.
+A fresh V1.9 entry has 20 enabled entities (12 sensors, eight controls). Selective
+polling now reads only these fields, using 18 contiguous requests (V1.7: 17), down
+from the earlier whole-component totals of 56 and 52. Disabled sibling fields are
+not read. Entity contexts are register keys, so battery power can run independently
+of SOC. Adjacent selected fields within a component share one request.
 
-The additional contexts are `ac_output_settings`, `battery_settings`,
-`bypass_settings`, `grid_settings`, `inverter_settings`, `system_mode` and
-`system_settings`. Each enabled component reads its supported sibling fields;
-several controls in one component share the same poll. In particular, the LED
-select enables the complete system-settings component. The per-device polling
-option still controls the wait after a cycle; request pacing is unchanged.
+Each group has its own deadline, and results are published immediately. Regular
+polling defaults to 30 seconds after completion; fast battery polling is opt-in.
+The shared scheduler prioritizes writes and their targeted readbacks, then fast
+battery telemetry, while allowing regular work between fast reads. Actual intervals
+depend on request spacing and device response time. See the README for settings,
+freshness budgets, and diagnostics. Diagnostics themselves add no polling.
 
 Tests verify default control sets, optional controls staying disabled, diagnostic
 categories, stable identities, zero writes during setup, firmware gates,

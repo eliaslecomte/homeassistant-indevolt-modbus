@@ -16,7 +16,7 @@ class IndevoltEntity(CoordinatorEntity[IndevoltCoordinator]):
     _attr_has_entity_name = True
 
     def __init__(self, entry: IndevoltConfigEntry, register: Register) -> None:
-        super().__init__(entry.runtime_data, context=register.component)
+        super().__init__(entry.runtime_data, context=register.key)
         self.register = register
         self._attr_unique_id = f"{entry.entry_id}_{register.key}"
         self._attr_translation_key = register.key
@@ -29,16 +29,12 @@ class IndevoltEntity(CoordinatorEntity[IndevoltCoordinator]):
     @property
     def available(self) -> bool:
         """Only consider data from a successful poll of this subsystem."""
-        return (
-            super().available
-            and self.register.component in self.coordinator.data.updated
-        )
+        return super().available and self.register.key in self.coordinator.data.updated
 
     async def _write(self, value: float) -> None:
         try:
-            await self.coordinator.device.async_write(self.register, value)
+            await self.coordinator.async_write(self.register, value)
         except (ModbusError, ValueError, AttributeError) as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN, translation_key="write_failed"
             ) from err
-        await self.coordinator.async_request_refresh()

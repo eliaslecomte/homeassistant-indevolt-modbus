@@ -21,7 +21,16 @@ from homeassistant.helpers.selector import (
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from modbus_connection import ModbusError, ModbusTcpParams
 
-from .const import CONF_UNIT_ID, DEFAULT_PORT, DEFAULT_UNIT_ID, DOMAIN, SCAN_INTERVAL
+from .const import (
+    CONF_FAST_POLL_INTERVAL,
+    CONF_MESSAGE_SPACING,
+    CONF_UNIT_ID,
+    DEFAULT_PORT,
+    DEFAULT_UNIT_ID,
+    DOMAIN,
+    MESSAGE_SPACING,
+    SCAN_INTERVAL,
+)
 from .transport import async_get_temporary_unit
 from .vendor.indevolt_modbus import IndevoltDevice
 
@@ -149,7 +158,7 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class IndevoltOptionsFlow(OptionsFlowWithReload):
-    """Configure the wait between completed polling cycles."""
+    """Configure regular reads, optional fast battery reads and request pacing."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -173,6 +182,40 @@ class IndevoltOptionsFlow(OptionsFlowWithReload):
                             NumberSelectorConfig(
                                 min=5,
                                 max=3600,
+                                step=1,
+                                unit_of_measurement="s",
+                                mode=NumberSelectorMode.BOX,
+                            )
+                        ),
+                        probatio.Coerce(int),
+                    ),
+                    probatio.Required(
+                        CONF_FAST_POLL_INTERVAL,
+                        default=self.config_entry.options.get(
+                            CONF_FAST_POLL_INTERVAL, 0
+                        ),
+                    ): probatio.All(
+                        NumberSelector(
+                            NumberSelectorConfig(
+                                min=0,
+                                max=3600,
+                                step=1,
+                                unit_of_measurement="s",
+                                mode=NumberSelectorMode.BOX,
+                            )
+                        ),
+                        probatio.Coerce(int),
+                    ),
+                    probatio.Required(
+                        CONF_MESSAGE_SPACING,
+                        default=self.config_entry.options.get(
+                            CONF_MESSAGE_SPACING, MESSAGE_SPACING
+                        ),
+                    ): probatio.All(
+                        NumberSelector(
+                            NumberSelectorConfig(
+                                min=1,
+                                max=60,
                                 step=1,
                                 unit_of_measurement="s",
                                 mode=NumberSelectorMode.BOX,
