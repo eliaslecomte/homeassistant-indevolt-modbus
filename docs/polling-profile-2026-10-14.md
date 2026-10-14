@@ -385,3 +385,57 @@ can be considered later if a concrete control requirement needs it; no extra
 SOC polling was introduced here. Five-second feedback is still best-effort, and
 this short read-only trial does not establish closed-loop stability or behavior
 under sustained writes. The authorized 120/5/2 settings remain active.
+
+## One-second spacing / three-second battery trial — 18:46–18:49
+
+User authorized the next timing experiment. On 2026-10-14 at approximately
+18:45:58+02:00, changed saved options to **120s regular / 3s battery / 1s spacing**
+through the official options flow, which reloads the integration. Version remains
+0.2.2; no code release or HA restart was needed. Battery mode and setpoints were
+not changed. Logging remained INFO and no control writes were tested.
+
+The pre-change snapshot was taken around 18:07, before an interruption and the
+user's request to continue. Its most recent 100 battery gaps had median 5.125s,
+mean 5.013s, p95 7.008s and range 2.559–7.282s. Cumulative counters showed 2803
+successful battery reads and 22 failed battery operations, with 37 failed reads
+across all groups and 510 disconnect notifications over the longer prior run.
+These cumulative counts cannot be directly compared with a three-minute trial.
+The options change reset worker counters.
+
+At approximately 18:49:18+02:00, the new worker reported:
+
+| Metric | Result |
+| --- | ---: |
+| Successful battery reads | 66 |
+| Battery successful-poll gaps | 65 |
+| Gap median / mean | 3.014s / 2.999s |
+| Gap p95 / maximum | 3.332s / 3.584s |
+| Minimum gap | 2.611s |
+| Completion lateness median / p95 / maximum | 0.012s / 0.304s / 0.539s |
+| Successful reads across all groups | 102 |
+| Failed reads across all groups | 0 |
+| Disconnect notifications | 10 |
+| Current failed fields | none |
+
+All 18 regular groups completed two successful reads. Their 18 measured gaps
+ranged from 120.173 to 120.598s (median 120.313s). Battery data age was 1.061s;
+SOC age was 29.270s. No explicit-job queue waits or pending control workload were
+observed. The last 100 operations averaged 0.555s, median 0.407s, p95 1.415s,
+maximum 1.486s. These durations exclude scheduler waiting before each operation
+and include any pacing/recovery inside it; they are not wire latency.
+
+Recorder query used the explicit window 2026-10-14T18:46:10+02:00 through
+2026-10-14T18:49:20+02:00. Battery had 56 state records and no unavailable state.
+SOC's window-start record was unavailable while awaiting its initial read after
+reload, then became available at 18:46:48.030 and updated at 18:48:48.321.
+There was no subsequent SOC unavailability in this window. Neither history
+query required pagination. Successful-poll counters, not state changes, supply
+the cadence figures above.
+
+Conclusion: the 120/3/1 trial achieved roughly three-second feedback, about 40%
+shorter mean gaps than the latest five-second baseline, without failed reads in
+this short sample. Disconnects persist and were recovered without failed reads.
+Startup SOC availability and the much shorter observation window must be kept
+separate from steady-state reliability. This does not validate sustained control
+writes or long-term device tolerance. The authorized **120/3/1 settings remain
+active**; no further timing reduction or ongoing monitor was configured.
