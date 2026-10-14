@@ -131,3 +131,87 @@ while holding other settings constant and measuring reconnect counts, completed
 read cadence and error rates. Do not simply equate the 5s battery target with
 achievable cadence: regular reads share the connection. No further follow-up was
 scheduled by this one-time inspection.
+
+## Authorized 2-second spacing experiment — 0.2.1
+
+Released commit `420ceef` as 0.2.1 after 56 integration tests, Ruff checks and
+GitHub Tests/Lint/Validate passed. Changed the default spacing to 2s and explicitly
+changed this device's saved spacing from 5s to 2s. Regular interval 30s and fast
+battery target 5s were preserved. Saved overrides remain preserved on upgrade.
+HACS installed 0.2.1; Home Assistant Core restart was initiated around
+2026-10-14T09:44:40+02:00 (not an OS reboot). Live diagnostics confirmed 0.2.1,
+protocol 24 and 30/5/2 settings after recovery. No battery mode or setpoint was
+changed by this experiment. The built-in HTTP Indevolt entry remained disabled.
+The second reported HTTP poller remains independently unverified.
+
+### Initial trace after startup
+
+Explicit retained trace window: 2026-10-14T09:48:46+02:00 through
+2026-10-14T09:50:04+02:00, several minutes after restart.
+
+- 32 completed reads, all successful in this trace.
+- Nine battery completions: eight gaps, median 8.761s, mean 8.685s,
+  range 7.373–10.034s. The 5s target is still not achieved.
+- SOC reads completed at 09:48:46.996 and 09:49:46.999: 60.003s apart.
+- Matched unit-1 TCP requests/responses: 32 pairs, median wire latency 0.410s,
+  mean 0.451s, range 0.199–1.427s. Battery-only wire latency: nine pairs,
+  median 0.352s, range 0.208–0.920s. Other Modbus units were excluded.
+- Remote closes persisted. Examples: read completion 09:49:18.185, close
+  09:49:18.203, reconnect 09:49:20.226; completion 09:49:42.185, close
+  09:49:42.192, reconnect 09:49:44.195. These closes immediately after successful
+  responses do not fit a simple five-second idle-timeout explanation. In these
+  examples reconnects fit into normal 2s pacing instead of adding a 5s recovery.
+
+### Resumed inspection later the same day
+
+The work was interrupted and resumed on the user's request; this is not one
+continuous debug capture. At 2026-10-14T13:37:52+02:00, diagnostics still showed
+0.2.1, 30/5/2 settings, no current failed fields and 100 recent read durations.
+Logging was explicitly restored to INFO and verified. Continuous DEBUG logging
+coverage across the interruption was not established; the later retained logs
+contain INFO reconnects rather than a complete per-read trace.
+
+| Read operation duration, including pacing/recovery | Prior 5s spacing | 2s spacing, latest 100 |
+| --- | ---: | ---: |
+| Mean | 8.846s | 2.427s |
+| Median | 10.289s | 2.357s |
+| p95, nearest rank | 10.593s | 3.068s |
+| Maximum | 13.309s | 3.632s |
+
+Mean duration is approximately 72.6% lower (3.65 times the operation throughput
+if continuously busy). These durations are not wire response latency.
+Snapshot battery age was 6.382s, SOC age 32.245s, and maximum field age 57.685s,
+compared with SOC age 322.430s in the earlier follow-up.
+
+Recorder window: 2026-10-14T13:19:30+02:00 through
+2026-10-14T13:37:50+02:00 (18m20s). Synthetic window-start states were excluded
+from cadence calculations; no pagination remained.
+
+- Battery: 119 numeric changes, 118 gaps, median 9.348s, mean 9.264s,
+  p95 10.137s, range 7.281–18.646s; no unavailable state. Values ranged
+  from -1837 to 2349 W. These are state-change gaps, not every successful poll.
+- SOC: 19 numeric changes, 18 gaps, median 57.181s, mean 58.117s,
+  range 55.855–65.183s; no unavailable state. SOC ranged 52.7–55.4%.
+- The same time window contains 46 connection-established lines explicitly
+  identifying the Indevolt endpoint, with median spacing 23.807s
+  (range 22.738–25.247s). Remote-close lines precede these by mostly about 2s.
+  Reconnection churn therefore persists despite better throughput.
+
+### Interpretation and next steps
+
+The shorter pacing substantially improves operation duration and battery/SOC
+freshness in both available samples. Battery updates are now roughly 8–10s,
+versus the prior short trace's 10.5–20.6s and the much earlier approximately
+8-minute cadence. It is not yet a reliable 5s feedback source. The serial worker
+and regular requests still delay fast reads; regular polling is also closer to
+one minute than its configured 30s target under this workload.
+
+This supports keeping the authorized 2s trial in place, but does not prove the
+firmware's connection-close mechanism. The later battery workload is active,
+unlike the earlier 0W/3.5% SOC baseline; restart, workload, time of day and the
+unverified second HTTP poller are confounders. No current failures and no recorder
+unavailability do not prove that no transient read failures occurred between
+samples. Recommended next work: investigate the repeatable roughly ten-request
+connection lifetime using a bounded transaction trace, then evaluate scheduler
+priority/regular workload before pursuing tighter battery control-loop cadence.
+Do not infer control-loop stability or write latency from these read measurements.
