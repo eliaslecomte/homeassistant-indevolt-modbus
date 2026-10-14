@@ -302,3 +302,86 @@ A ~5s battery cadence is plausible with two ~2.4s operations per cycle, but has
 little headroom for writes or slow responses. This investigation does not validate
 a closed-loop controller, write latency or guaranteed 5s updates. No scheduler
 code, battery controls or polling settings were changed in this investigation.
+
+## Deadline scheduler trial — 0.2.2, 14:04–14:09
+
+Implemented and released commit `e6beee7` as 0.2.2. Fast polling now reserves a
+completion deadline using an adaptive response estimate, holds regular work that
+would consume that slot, skips missed/unreachable slots, and retains write
+priority plus regular-read fairness. Diagnostics include per-group successful
+poll gaps, completion lateness, success/failure counts, queued explicit-job waits
+and disconnect counts since worker start. The settings default remains 30s for
+regular polling; saved settings are preserved on upgrade.
+
+Validation: 58 integration tests and Ruff lint/format passed locally; GitHub
+Tests, Lint and Validate all passed. Controlled-clock tests exercise paced
+five-second cadence with regular progress, skipped slots after a slow read,
+failure backoff and connection-loss subscription cleanup. Existing tests cover
+write priority, readback, no write replay and shutdown cancellation.
+
+HACS installed 0.2.2 and Home Assistant Core was restarted around
+2026-10-14T14:03:52+02:00. At 14:06:50, diagnostics confirmed loaded 0.2.2 and
+**120s regular / 5s battery target / 2s spacing**. Only the regular polling option
+was changed for this trial. No battery mode or setpoints were changed. No DEBUG
+logging was needed; INFO was verified in the final diagnostic snapshot.
+
+### Successful-poll measurements
+
+Snapshot: 2026-10-14T14:09:29+02:00, after several minutes of polling. This is a
+short startup/settling trial, not a long-term reliability test. There are 19
+selected read groups: one battery group and 18 regular groups.
+
+| Metric | Result |
+| --- | ---: |
+| Battery successful reads | 44 |
+| Measured battery gaps | 43 |
+| Battery gap median | 5.083s |
+| Battery gap mean | 5.231s |
+| Battery gap p95 (nearest rank) | 6.228s |
+| Battery gap range | 2.509–6.975s |
+| Fast completion lateness median / p95 / max | 0.381 / 2.435 / 3.740s |
+| Successful reads, all groups | 79 |
+| Failed operations, all groups | 1 |
+| Disconnect notifications since worker start | 8 |
+| Current failed fields | none |
+
+These are successful-poll gaps measured by the coordinator, including unchanged
+values. They improve substantially on the 0.2.1 trace's 9.2–10.5s gaps. The target
+is approximate: a delayed sample may be followed by a shorter gap to the next
+scheduled slot, subject to request pacing and regular-work fairness.
+
+All regular groups were sampled. Seventeen groups have a second successful read,
+with gaps between 120.263 and 124.830s. SOC's measured gap was 124.679s. The charge
+speed field (1138) timed out once during startup and then succeeded on its next
+scheduled retry. Its timeout remained visible for approximately the regular retry
+interval; it has only one success and therefore no successful-poll gap yet.
+Battery age at the snapshot was 1.993s and SOC age 19.806s. No explicit writes or
+refresh jobs were observed in the queue metrics, so command latency remains
+untested on hardware.
+
+Recorder query: 2026-10-14T14:07:30+02:00 through
+2026-10-14T14:09:29+02:00. Battery returned 24 state records and SOC two, with no
+unavailable states or remaining pagination. These state records are not used as
+the primary cadence measurement.
+
+### Timing interpretation and limitations
+
+The 80 read operations had mean 1.462s, median 1.336s, p95 2.966s and maximum
+4.007s. This does **not** imply a faster wire response: the scheduler now spends
+some idle time waiting for a reserved slot before entering the measured read
+operation, so less pacing occurs inside that operation. Successful-poll cadence
+is the appropriate before/after metric. No new wire trace was collected.
+
+The eight disconnect notifications show that the scheduler change does not remove
+connection churn. Their count is not a count of failed reads: only one failed
+read was recorded. This supports retaining reconnect handling rather than adding
+proactive connection cycling. Firmware-level close policy remains unproven.
+
+The live result supports the combined scheduler and 120s workload-budget change.
+Because both changed together, it does not isolate their individual contribution.
+The controlled-clock test independently demonstrates the deadline behavior.
+Regular telemetry, including SOC, is deliberately slower. A separate SOC cadence
+can be considered later if a concrete control requirement needs it; no extra
+SOC polling was introduced here. Five-second feedback is still best-effort, and
+this short read-only trial does not establish closed-loop stability or behavior
+under sustained writes. The authorized 120/5/2 settings remain active.
