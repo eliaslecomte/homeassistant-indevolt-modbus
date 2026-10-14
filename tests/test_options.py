@@ -28,7 +28,7 @@ async def test_interval_and_options_defaults(hass, unit, interval):
     assert result["data_schema"]({}) == {
         CONF_SCAN_INTERVAL: interval or 30,
         "fast_poll_interval": 0,
-        "message_spacing": 5,
+        "message_spacing": 2,
     }
     for invalid in (0, -1, 4, 3601, "not a number"):
         with pytest.raises(probatio.Invalid):
@@ -64,7 +64,7 @@ async def test_options_reload_applies_interval_and_releases_unit(hass, unit):
         assert entry.options == {
             CONF_SCAN_INTERVAL: 120,
             "fast_poll_interval": 0,
-            "message_spacing": 5,
+            "message_spacing": 2,
         }
         assert entry.data == DATA
         assert entry.runtime_data is not old_coordinator
@@ -76,7 +76,9 @@ async def test_options_reload_applies_interval_and_releases_unit(hass, unit):
 
 
 async def test_options_preserve_other_settings(hass):
-    entry = MockConfigEntry(domain=DOMAIN, data=DATA, options={"future_setting": True})
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=DATA, options={"future_setting": True, "message_spacing": 5}
+    )
     entry.add_to_hass(hass)
     with patch.object(hass.config_entries, "async_reload", new_callable=AsyncMock):
         result = await hass.config_entries.options.async_init(entry.entry_id)

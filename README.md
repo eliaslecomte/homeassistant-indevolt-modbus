@@ -66,11 +66,12 @@ Under **Settings → Devices & services → Indevolt Modbus → Configure**:
 | --- | --- | --- | --- |
 | Regular polling interval | 30 s | 5–3600 s | Wait after each regular register group's completed read |
 | Battery power polling interval | 0 (off) | 0–3600 s | Separate priority interval for battery power (6564); 0 uses regular polling |
-| Minimum spacing between requests | 5 s | 1–60 s | Shared pacing for reads and writes |
+| Minimum spacing between requests | 2 s | 1–60 s | Shared pacing for reads and writes |
 
 Fast polling uses the existing battery power entity; it does not create a duplicate
 or enable a disabled entity. SOC remains on regular polling. Saving reloads the
-integration. Existing regular interval settings are preserved.
+integration. Existing saved interval and request-spacing settings are preserved.
+To try the shorter spacing on an existing installation, explicitly select 2 seconds.
 
 All intervals are best-effort targets. One worker serializes operations, prioritizes
 writes plus their targeted readbacks, and interleaves fast reads with regular work.
@@ -78,7 +79,8 @@ At least one due regular request gets a turn between fast reads. Response time,
 pacing, connection recovery, and writes can extend the observed interval. A 2-second
 battery target with 5-second pacing cannot produce 2-second updates. The manufacturer
 recommends at least 5 seconds between requests and supports a minimum of 1 second;
-faster pacing requires hardware testing. Changing a setting no longer requests a
+The 2-second default is an experiment to stay below the approximately 5-second
+idle connection closures observed during profiling; hardware behavior may vary. Changing a setting no longer requests a
 full telemetry refresh. Writes are never automatically replayed.
 
 Failures affect only the fields in that request and are retried with backoff.
