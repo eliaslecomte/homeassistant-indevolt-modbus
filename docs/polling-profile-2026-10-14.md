@@ -215,3 +215,90 @@ samples. Recommended next work: investigate the repeatable roughly ten-request
 connection lifetime using a bounded transaction trace, then evaluate scheduler
 priority/regular workload before pursuing tighter battery control-loop cadence.
 Do not infer control-loop stability or write latency from these read measurements.
+
+## Connection-lifetime and scheduler investigation — 13:42–13:43
+
+Read-only investigation of runtime behavior; settings stayed 30/5/2. Temporarily
+enabled DEBUG from INFO and restored INFO after fetching the trace. Retained
+window: 2026-10-14T13:42:39+02:00 through 2026-10-14T13:43:38+02:00.
+25 reads completed successfully, including seven battery reads. Battery completion
+gaps were 9.314, 9.214, 10.497, 9.626, 9.509 and 9.543 seconds.
+
+### Connection closures: strong ten-response pattern
+
+Two fully captured connections each delivered transaction IDs 1 through 10,
+then closed immediately after response 10:
+
+| Connection established | Tenth response | Register | Remote-close log | Next connection |
+| --- | --- | --- | --- | --- |
+| 13:42:39.930 | 13:43:01.097 | 1150 | 13:43:01.109 | 13:43:03.122 |
+| 13:43:03.122 | 13:43:25.949 | 7266 | 13:43:25.958 | 13:43:28.063 |
+
+Closure followed response completion by 12ms and 9ms, on different registers.
+The next requests succeeded; neither closure caused a failed read in this trace.
+The response-to-next-send gaps were 2.028s and 2.117s, close to normal 2s pacing.
+This is strong evidence for a device-side ten-request connection lifetime, not
+proof of the firmware mechanism or a universal guarantee. A packet capture or
+firmware documentation would be needed to establish TCP initiator/policy fully.
+The tmodbus log label alone is not sufficient: its clean connection_lost callback
+uses the same remote-close wording even for local teardown. However, the inspected
+integration only closes on unload/shutdown/probe cleanup, and the inspected client
+code has no ten-request close policy. No local teardown/retry warnings appeared
+in the retained trace. Local dependency source versions may differ from HA's
+installed transitive dependencies; the live transaction pattern is primary evidence.
+
+Do not proactively disconnect after nine reads or replay writes to address this:
+that would add churn without evidence of a benefit. Existing reconnect handling
+is effective in this sample. Monitor disconnects separately from failed operations.
+
+### Scheduler: deadline semantics and head-of-line blocking
+
+In coordinator.py, _read sets group.due to completion + interval (line 172),
+and _run considers a fast read only once this deadline has passed (line 189).
+It then enters the transport's pacing gate. Thus the fast interval represents a
+wait before starting a read operation, not a completion-to-completion target.
+The worker also starts a regular read even when that operation will cross the
+upcoming fast deadline. A regular read cannot be preempted once started.
+
+Concrete timeline:
+
+- Battery completes 13:42:40.290; next eligibility is 13:42:45.290.
+- Regular reads complete 13:42:42.592 and 13:42:44.946.
+- Since fast is not eligible yet, a third regular read starts and completes
+  13:42:47.443, already 2.153s past the fast deadline.
+- Battery request sends 13:42:49.444 after transport pacing and completes
+  13:42:49.604. Total battery gap: 9.314s.
+
+There is no closure during this gap. The scheduling policy, rather than reconnect
+cost, explains it directly. The fairness rule requiring at least one regular read
+between battery reads is not the immediate cause here: three regular reads run.
+
+The observed ~2.43s average operation duration permits about 0.41 requests/s.
+Even the enabled regular groups alone cannot all recur every 30s at that rate;
+adding battery reads every 5s requires 0.20 requests/s by itself. Increasing fast
+priority necessarily slows regular fields unless fewer requests are needed.
+A rough budget with 18 regular groups leaves ~0.21 requests/s for regular work,
+or about 85s per regular round before reserving capacity for writes/recovery.
+This is a capacity estimate, not a measured guarantee.
+
+### Recommended implementation
+
+1. Give fast battery polling an explicit cadence target rather than a post-read
+   delay: track the intended next sample deadline, account for expected pacing
+   and read duration, and reserve the next request slot before it is missed.
+   Skip missed slots instead of issuing catch-up bursts. Preserve write priority.
+2. Before starting a regular read, check whether it would consume the next fast
+   slot. Keep fairness and a bounded regular-work budget. Test slow reads, failures,
+   writes/readbacks, cancellation and missed deadlines with a controlled clock.
+3. Add diagnostics for selected-group counts, per-group successful-poll gaps,
+   deadline lateness, queue wait, operation duration and disconnect counts. Keep
+   wire latency separate from application timing and state-change history.
+4. Budget regular telemetry realistically: approximately 90–120s for the present
+   workload if pursuing ~5s battery cadence at 2s spacing, with SOC optionally on
+   an intermediate schedule. Reducing selected requests is another option.
+   Changing regular interval alone will not fix fast deadline semantics.
+
+A ~5s battery cadence is plausible with two ~2.4s operations per cycle, but has
+little headroom for writes or slow responses. This investigation does not validate
+a closed-loop controller, write latency or guaranteed 5s updates. No scheduler
+code, battery controls or polling settings were changed in this investigation.

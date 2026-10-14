@@ -65,7 +65,7 @@ Under **Settings → Devices & services → Indevolt Modbus → Configure**:
 | Setting | Default | Range | Meaning |
 | --- | --- | --- | --- |
 | Regular polling interval | 30 s | 5–3600 s | Wait after each regular register group's completed read |
-| Battery power polling interval | 0 (off) | 0–3600 s | Separate priority interval for battery power (6564); 0 uses regular polling |
+| Battery power polling interval | 0 (off) | 0–3600 s | Target completion cadence for battery power (6564); 0 uses regular polling |
 | Minimum spacing between requests | 2 s | 1–60 s | Shared pacing for reads and writes |
 
 Fast polling uses the existing battery power entity; it does not create a duplicate
@@ -75,7 +75,9 @@ To try the shorter spacing on an existing installation, explicitly select 2 seco
 
 All intervals are best-effort targets. One worker serializes operations, prioritizes
 writes plus their targeted readbacks, and interleaves fast reads with regular work.
-At least one due regular request gets a turn between fast reads. Response time,
+The scheduler reserves the next battery slot using an adaptive response-time estimate
+and skips missed slots without catch-up bursts. At least one due regular request
+gets a turn between fast reads. Writes remain highest priority. Response time,
 pacing, connection recovery, and writes can extend the observed interval. A 2-second
 battery target with 5-second pacing cannot produce 2-second updates. The manufacturer
 recommends at least 5 seconds between requests and supports a minimum of 1 second;
@@ -165,3 +167,10 @@ Some device firmware closes TCP connections around the five-second request
 interval. A disconnected holding-register read is retried once after waiting
 for the pacing interval, allowing the backend to reconnect immediately before
 sending. Writes are never replayed automatically.
+
+With 2-second spacing, a 5-second battery target leaves limited capacity for
+regular telemetry. A 90–120-second regular interval is a reasonable starting
+point for the current enabled workload; the default remains 30 seconds.
+Diagnostics expose per-group successful-poll gaps, fast completion lateness,
+explicit-job queue waits, failure counts and connection-loss counts since start.
+The response-time estimate is scheduling feedback, not measured wire latency.

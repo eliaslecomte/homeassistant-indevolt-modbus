@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from time import monotonic
 from typing import Any
 
@@ -36,6 +36,11 @@ class ReadGroup:
     fast: bool = False
     due: float = 0
     failures: int = 0
+    successes: int = 0
+    errors: int = 0
+    last_success: float | None = None
+    gaps: deque[float] = field(default_factory=lambda: deque(maxlen=100))
+    lateness: deque[float] = field(default_factory=lambda: deque(maxlen=100))
 
 
 @dataclass
@@ -46,6 +51,7 @@ class Job:
     done: asyncio.Future[None]
     register: Register | None = None
     value: float = 0
+    queued_at: float = field(default_factory=lambda: monotonic())
 
 
 class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
@@ -70,6 +76,11 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         self._wake = asyncio.Event()
         self._worker: asyncio.Task[None] | None = None
         self._last_fast = False
+        self._last_operation_finished: float | None = None
+        self._response_estimate = 0.4
+        self.disconnect_count = 0
+        self.job_queue_waits: deque[float] = deque(maxlen=100)
+        self._unsubscribe_disconnect = None
 
     def value(self, register: Register) -> Any:
         """Return a selected field's most recent decoded value."""
@@ -89,9 +100,35 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
 
     def async_start(self) -> None:
         """Start after enabled entities have registered their field contexts."""
+        subscribe = getattr(self.device.modbus_unit, "on_connection_lost", None)
+        if subscribe is not None:
+            self._unsubscribe_disconnect = subscribe(self._connection_lost)
         self._worker = self.hass.async_create_background_task(
             self._run(), f"{DOMAIN} polling"
         )
+
+    def _connection_lost(self) -> None:
+        self.disconnect_count += 1
+
+    def _pacing_remaining(self, now: float) -> float:
+        if self._last_operation_finished is None:
+            return self.message_spacing
+        return max(0.0, self.message_spacing - (now - self._last_operation_finished))
+
+    def _fast_start(self, group: ReadGroup) -> float:
+        # Reserve the dispatch slot; the transport still enforces minimum pacing.
+        return group.due if group.failures else group.due - self._response_estimate
+
+    def _regular_fits(self, fast: ReadGroup, now: float) -> bool:
+        # A regular response, the next pacing gap, then the battery response.
+        finish = (
+            now
+            + self._pacing_remaining(now)
+            + self._response_estimate
+            + self.message_spacing
+            + self._response_estimate
+        )
+        return finish <= fast.due
 
     def _sync_groups(self) -> None:
         contexts = set(self.async_contexts())
@@ -147,6 +184,8 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
     async def _read(self, group: ReadGroup) -> ModbusError | None:
         keys = set(group.reader.resolved_fields)
         start = monotonic()
+        expected_pacing = self._pacing_remaining(start)
+        deadline = group.due
         error = None
         try:
             await group.reader.async_update(notify=False)
@@ -160,8 +199,23 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
                 self.last_success[key] = monotonic()
                 self._report.failed.pop(key, None)
             self._report.updated.update(keys)
+            now = monotonic()
+            if group.last_success is not None:
+                group.gaps.append(now - group.last_success)
+            group.last_success = now
+            group.successes += 1
         finally:
-            duration = monotonic() - start
+            finished = monotonic()
+            duration = finished - start
+            self._last_operation_finished = finished
+            if deadline and group.fast:
+                group.lateness.append(max(0.0, finished - deadline))
+            if error:
+                group.errors += 1
+            else:
+                # This residual is a scheduling estimate, NOT measured wire latency.
+                residual = max(0.05, min(2.0, duration - expected_pacing))
+                self._response_estimate = 0.8 * self._response_estimate + 0.2 * residual
             self.read_durations.append(duration)
             group.failures = min(group.failures + 1, 6) if error else 0
             retry_interval = (
@@ -169,7 +223,19 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
                 if error
                 else group.interval
             )
-            group.due = monotonic() + retry_interval
+            if group.fast and not error:
+                # Keep cadence anchored; skip missed slots without catch-up bursts.
+                target = (
+                    deadline + group.interval if deadline else finished + group.interval
+                )
+                earliest = finished + self.message_spacing + self._response_estimate
+                if target <= earliest:
+                    target += (
+                        int((earliest - target) // group.interval) + 1
+                    ) * group.interval
+                group.due = target
+            else:
+                group.due = finished + retry_interval
             _LOGGER.debug(
                 "Read %s took %.3fs including pacing/recovery; success=%s",
                 sorted(keys),
@@ -186,31 +252,45 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
                 self._wake.clear()
                 self._sync_groups()
                 # At least one regular request gets a turn between fast reads.
-                due = [g for g in self._groups if g.due <= monotonic()]
-                fast = next((g for g in due if g.fast), None)
+                now = monotonic()
+                due = [g for g in self._groups if not g.fast and g.due <= now]
+                fast = next((g for g in self._groups if g.fast), None)
+                fast_ready = fast is not None and self._fast_start(fast) <= now
                 regular = min(
                     (g for g in due if not g.fast), key=lambda g: g.due, default=None
                 )
                 if self._writes:
                     active = self._writes.popleft()
-                elif fast is not None and (
+                elif fast_ready and (
                     not self._last_fast or (regular is None and not self._reads)
                 ):
                     await self._read(fast)
                     self._last_fast = True
                     continue
-                elif self._reads:
+                elif self._reads and (
+                    fast is None
+                    or self._last_fast
+                    or fast.failures
+                    or self._regular_fits(fast, now)
+                ):
                     active = self._reads.popleft()
-                elif regular is not None:
+                elif regular is not None and (
+                    fast is None
+                    or self._last_fast
+                    or fast.failures
+                    or self._regular_fits(fast, now)
+                ):
                     await self._read(regular)
                     self._last_fast = False
                     continue
                 else:
-                    delay = max(
-                        0,
-                        min((g.due for g in self._groups), default=monotonic() + 1)
-                        - monotonic(),
-                    )
+                    # Overdue regular groups may be intentionally held for fast.
+                    deadlines = [
+                        g.due for g in self._groups if not g.fast and g.due > now
+                    ]
+                    if fast is not None:
+                        deadlines.append(self._fast_start(fast))
+                    delay = max(0.001, min(deadlines, default=now + 1) - now)
                     try:
                         async with asyncio.timeout(min(delay, 1)):
                             await self._wake.wait()
@@ -220,9 +300,13 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
                 if active.done.cancelled():
                     active = None
                     continue
+                self.job_queue_waits.append(monotonic() - active.queued_at)
                 try:
                     if active.register is not None:
-                        await self.device.async_write(active.register, active.value)
+                        try:
+                            await self.device.async_write(active.register, active.value)
+                        finally:
+                            self._last_operation_finished = monotonic()
                     error = await self._read(active.group)
                     if error is not None and active.register is not None:
                         raise error
@@ -243,6 +327,9 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
 
     async def async_shutdown(self) -> None:
         """Stop the worker before the integration releases its connection."""
+        if self._unsubscribe_disconnect is not None:
+            self._unsubscribe_disconnect()
+            self._unsubscribe_disconnect = None
         await super().async_shutdown()
         if self._worker is not None:
             self._worker.cancel()
