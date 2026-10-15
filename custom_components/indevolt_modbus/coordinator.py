@@ -18,6 +18,7 @@ from .const import (
     CONF_FAST_POLL_INTERVAL,
     CONF_MESSAGE_SPACING,
     DOMAIN,
+    FAST_POLL_REGISTER,
     MESSAGE_SPACING,
     SCAN_INTERVAL,
 )
@@ -90,7 +91,7 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         """Reject cached values that have missed several polling opportunities."""
         interval = (
             self.fast_interval
-            if register.address == 6564 and self.fast_interval
+            if register.address == FAST_POLL_REGISTER and self.fast_interval
             else self.regular_interval
         )
         budget = max(3 * interval, 4 * (self.message_spacing + 2))
@@ -120,7 +121,7 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         return group.due if group.failures else group.due - self._response_estimate
 
     def _regular_fits(self, fast: ReadGroup, now: float) -> bool:
-        # A regular response, the next pacing gap, then the battery response.
+        # A regular response, the next pacing gap, then the inverter AC response.
         finish = (
             now
             + self._pacing_remaining(now)
@@ -138,7 +139,9 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         fast = {
             r.key
             for r in self.device.registers
-            if r.address == 6564 and r.key in contexts and self.fast_interval
+            if r.address == FAST_POLL_REGISTER
+            and r.key in contexts
+            and self.fast_interval
         }
         previous = {tuple(g.reader.resolved_fields): g for g in self._groups}
         groups = []

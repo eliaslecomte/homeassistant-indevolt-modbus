@@ -65,21 +65,21 @@ Under **Settings → Devices & services → Indevolt Modbus → Configure**:
 | Setting | Default | Range | Meaning |
 | --- | --- | --- | --- |
 | Regular polling interval | 30 s | 5–3600 s | Wait after each regular register group's completed read |
-| Battery power polling interval | 0 (off) | 0–3600 s | Target completion cadence for battery power (6564); 0 uses regular polling |
+| Inverter AC power polling interval | 0 (off) | 0–3600 s | Target completion cadence for inverter AC power (174); 0 uses regular polling |
 | Minimum spacing between requests | 2 s | 1–60 s | Shared pacing for reads and writes |
 
-Fast polling uses the existing battery power entity; it does not create a duplicate
+Fast polling uses the existing Inverter AC power entity; it does not create a duplicate
 or enable a disabled entity. SOC remains on regular polling. Saving reloads the
 integration. Existing saved interval and request-spacing settings are preserved.
 To try the shorter spacing on an existing installation, explicitly select 2 seconds.
 
 All intervals are best-effort targets. One worker serializes operations, prioritizes
 writes plus their targeted readbacks, and interleaves fast reads with regular work.
-The scheduler reserves the next battery slot using an adaptive response-time estimate
+The scheduler reserves the next inverter AC power slot using an adaptive response-time estimate
 and skips missed slots without catch-up bursts. At least one due regular request
 gets a turn between fast reads. Writes remain highest priority. Response time,
 pacing, connection recovery, and writes can extend the observed interval. A 2-second
-battery target with 5-second pacing cannot produce 2-second updates. The manufacturer
+inverter AC power target with 5-second pacing cannot produce 2-second updates. The manufacturer
 recommends at least 5 seconds between requests and supports a minimum of 1 second;
 The 2-second default is an experiment to stay below the approximately 5-second
 idle connection closures observed during profiling; hardware behavior may vary. Changing a setting no longer requests a
@@ -168,9 +168,26 @@ interval. A disconnected holding-register read is retried once after waiting
 for the pacing interval, allowing the backend to reconnect immediately before
 sending. Writes are never replayed automatically.
 
-With 2-second spacing, a 5-second battery target leaves limited capacity for
+With 2-second spacing, a 5-second inverter AC power target leaves limited capacity for
 regular telemetry. A 90–120-second regular interval is a reasonable starting
 point for the current enabled workload; the default remains 30 seconds.
 Diagnostics expose per-group successful-poll gaps, fast completion lateness,
 explicit-job queue waits, failure counts and connection-loss counts since start.
 The response-time estimate is scheduling feedback, not measured wire latency.
+
+### Fast polling target and power direction
+
+Fast polling now targets **Inverter AC power (174)**. The saved `fast_poll_interval`
+value is retained and applies to register 174 instead of Battery power (6564).
+Enable Inverter AC power in the device's entity list if it is disabled; selecting
+a fast interval does not automatically enable it. Battery power, SOC and total
+AC power (1284) use regular polling. Existing entity IDs and unique IDs are retained.
+Diagnostics now label the interval `fast_ac_power_interval` instead of
+`fast_battery_interval`; historical profiling documents describe the old target.
+
+Register 174 is positive for AC charging/input and negative for discharging/output.
+Battery power (6564) uses the opposite convention: positive discharge, negative
+charge. Neither value is sign-inverted. Total inverter-plus-bypass AC power
+(ACOutW, 1284) now decodes as signed int16: raw 63609 becomes -1927 W.
+The vendor's uint16 type conflicts with its directional description; the
+[canonical library documentation](https://github.com/eliaslecomte/indevolt-modbus#directional-ac-power-correction) records the correction.

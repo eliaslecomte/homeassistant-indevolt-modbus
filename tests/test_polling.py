@@ -38,29 +38,29 @@ async def test_fast_updates_publish_without_reading_soc(hass, unit, monkeypatch)
         "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
     )
     coordinator, registers = await ready(
-        hass, unit, [6564, 7599], fast_poll_interval=2, message_spacing=1
+        hass, unit, [174, 7599], fast_poll_interval=2, message_spacing=1
     )
     coordinator.async_start()
     try:
         await until(lambda: len(unit.read_events) == 2)
-        assert [r.address for r in unit.read_events] == [6564, 7599]
-        unit.holding[6564] = 123
+        assert [r.address for r in unit.read_events] == [174, 7599]
+        unit.holding[174] = 123
         clock[0] += 2
         coordinator._wake.set()
         await until(lambda: len(unit.read_events) == 3)
-        assert unit.read_events[-1].address == 6564
-        assert coordinator.value(registers[6564]) == 123
+        assert unit.read_events[-1].address == 174
+        assert coordinator.value(registers[174]) == 123
         assert coordinator.value(registers[7599]) == 76.5
         # A failed fast read affects only battery power; subsequent success recovers.
-        unit.fail_read(6564, IllegalDataAddressError())
+        unit.fail_read(174, IllegalDataAddressError())
         clock[0] += 2
         coordinator._wake.set()
-        await until(lambda: registers[6564].key in coordinator.data.failed)
+        await until(lambda: registers[174].key in coordinator.data.failed)
         assert registers[7599].key in coordinator.data.updated
-        unit.fail_read(6564, None)
+        unit.fail_read(174, None)
         clock[0] += 60
         coordinator._wake.set()
-        await until(lambda: registers[6564].key in coordinator.data.updated)
+        await until(lambda: registers[174].key in coordinator.data.updated)
     finally:
         await coordinator.async_shutdown()
 
@@ -71,7 +71,7 @@ async def test_write_priority_readback_and_regular_fairness(hass, unit, monkeypa
         "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
     )
     coordinator, registers = await ready(
-        hass, unit, [6564, 7599, 2250], fast_poll_interval=2, message_spacing=1
+        hass, unit, [174, 7599, 2250], fast_poll_interval=2, message_spacing=1
     )
     entered = asyncio.Event()
     release = asyncio.Event()
@@ -90,7 +90,7 @@ async def test_write_priority_readback_and_regular_fairness(hass, unit, monkeypa
         coordinator.async_start()
         try:
             await entered.wait()
-            assert seen[0] == [6564]
+            assert seen[0] == [174]
             clock[0] += 3
             command = asyncio.create_task(coordinator.async_write(registers[1142], 42))
             await asyncio.sleep(0)
@@ -100,8 +100,8 @@ async def test_write_priority_readback_and_regular_fairness(hass, unit, monkeypa
             # Only the current regular request precedes the command. Its readback
             # is followed by fast telemetry and then another regular request.
             assert seen[2] == [1142]
-            assert seen[3] == [6564]
-            assert seen[4] != [6564]
+            assert seen[3] == [174]
+            assert seen[4] != [174]
             assert unit.holding[1142] == 42
             assert coordinator.value(registers[1142]) == 42
         finally:
@@ -126,7 +126,7 @@ async def test_failed_write_is_not_replayed(hass, unit):
 
 
 async def test_shutdown_cancels_pending_commands(hass, unit):
-    coordinator, registers = await ready(hass, unit, [6564])
+    coordinator, registers = await ready(hass, unit, [174])
     entered = asyncio.Event()
 
     async def blocked(group):
@@ -158,12 +158,12 @@ async def test_stale_fast_value_and_disabled_entity(hass, unit, monkeypatch):
         assert unit.read_events[0].address == 7599
         # Configuring fast polling alone does not enable a disabled battery entity.
         assert not any(group.fast for group in coordinator._groups)
-        assert not coordinator.is_fresh(registers[6564])
-        unsubscribe = coordinator.async_add_listener(lambda: None, registers[6564].key)
+        assert not coordinator.is_fresh(registers[174])
+        unsubscribe = coordinator.async_add_listener(lambda: None, registers[174].key)
         coordinator._wake.set()
-        await until(lambda: coordinator.is_fresh(registers[6564]))
+        await until(lambda: coordinator.is_fresh(registers[174]))
         clock[0] += 13
-        assert not coordinator.is_fresh(registers[6564])
+        assert not coordinator.is_fresh(registers[174])
         assert coordinator.is_fresh(registers[7599])
         unsubscribe()
         coordinator._sync_groups()
@@ -182,7 +182,7 @@ async def test_fast_cadence_reserves_slot_and_records_disconnects(
     coordinator, _ = await ready(
         hass,
         unit,
-        [6564, 7599, 2250, 1142],
+        [174, 7599, 2250, 1142],
         fast_poll_interval=5,
         scan_interval=120,
         message_spacing=2,
@@ -224,7 +224,7 @@ async def test_slow_read_skips_missed_slots_and_failure_backs_off(
     monkeypatch.setattr(
         "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
     )
-    coordinator, _ = await ready(hass, unit, [6564], fast_poll_interval=5)
+    coordinator, _ = await ready(hass, unit, [174], fast_poll_interval=5)
     coordinator._sync_groups()
     group = coordinator._groups[0]
     group.due = 105
@@ -243,4 +243,33 @@ async def test_slow_read_skips_missed_slots_and_failure_backs_off(
     assert group.errors == 1
     assert group.due == 122
     assert coordinator._fast_start(group) == 122
+    await coordinator.async_shutdown()
+
+
+async def test_ac_fast_target_leaves_battery_regular(hass, unit, monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(
+        "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
+    )
+    coordinator, registers = await ready(
+        hass,
+        unit,
+        [174, 6564],
+        fast_poll_interval=3,
+        scan_interval=120,
+        message_spacing=1,
+    )
+    coordinator._sync_groups()
+    fast = next(g for g in coordinator._groups if g.fast)
+    regular = next(g for g in coordinator._groups if not g.fast)
+    assert set(fast.reader.resolved_fields) == {registers[174].key}
+    assert set(regular.reader.resolved_fields) == {registers[6564].key}
+    assert fast.interval == 3
+    assert regular.interval == 120
+    coordinator.last_success = dict.fromkeys(
+        [registers[174].key, registers[6564].key], clock[0]
+    )
+    clock[0] += 13
+    assert not coordinator.is_fresh(registers[174])
+    assert coordinator.is_fresh(registers[6564])
     await coordinator.async_shutdown()

@@ -439,3 +439,87 @@ Startup SOC availability and the much shorter observation window must be kept
 separate from steady-state reliability. This does not validate sustained control
 writes or long-term device tolerance. The authorized **120/3/1 settings remain
 active**; no further timing reduction or ongoing monitor was configured.
+
+## Next-morning follow-up — 15 October, 09:30
+
+Read-only MCP inspection on 2026-10-15. History window:
+**2026-10-15T09:12:00+02:00 through 2026-10-15T09:30:28+02:00** (18m28s).
+Diagnostics and bounded logs were fetched around 09:30:35. Version remains 0.2.2,
+HA 2026.10.1; settings remain **120s regular / 3s battery / 1s spacing**.
+No settings, enablement, modes, setpoints or logging levels were changed. INFO
+logging was sufficient; no new wire-latency capture was taken.
+
+The built-in Indevolt HTTP integration remains user-disabled/not_loaded. Only
+one HTTP Indevolt entry and one active Modbus entry match the integration search.
+EVCC remains loaded; this does not establish whether its backend polls the battery.
+The second reported HTTP poller is still unverified.
+
+### Current cadence and freshness
+
+| Measurement | Result |
+| --- | ---: |
+| Latest 100 successful battery-poll gaps: mean / median | 2.999 / 3.020s |
+| Battery poll gaps: p95 / maximum / minimum | 3.689 / 4.053 / 1.585s |
+| Latest 100 successful SOC-poll gaps: mean / median | 120.637 / 120.403s |
+| SOC poll gaps: p95 / maximum | 121.779 / 123.688s |
+| Battery / SOC data age at snapshot | 1.761 / 110.970s |
+| Current failed fields | none |
+| Last 100 operation durations: mean / median | 0.529 / 0.409s |
+| Operation durations: p95 / maximum | 1.274 / 1.495s |
+
+Successful-poll gaps include unchanged values. These rolling samples have
+separate coverage: 100 battery gaps span about five minutes, whereas 100 SOC gaps
+span several hours. Read-operation durations include pacing/recovery inside the
+operation, exclude scheduler waiting before it, and are not wire latency.
+
+Recorder returned 346 battery records, including the synthetic window-start
+record; excluding that record leaves 345 numeric states and 344 gaps. State-change
+gap median was 3.026s, mean 3.218s, p95 5.736s, range 1.585–8.959s. There were no
+unavailable states. Power ranged from -790 to -532 W. Longer state-change gaps
+can reflect unchanged readings and must not be labeled missed polls.
+
+SOC returned ten records, including the synthetic initial record; nine numeric
+changes yielded eight gaps, median 120.483s, range 120.196–121.813s. There were no
+unavailable states. SOC ranged from 6.5% to 11.1%. Neither query had remaining
+pagination.
+
+### Failures and connection recovery
+
+Current worker counters show 21,992 successful and 40 failed read operations
+(0.182% failed), including 15,150 successful and 27 failed battery operations
+(0.178% failed), and 2,207 disconnect notifications. These are cumulative worker
+counters, not counts for the 18-minute history window or guaranteed counts since
+yesterday's options change. A later bootstrap warning is present in system logs,
+so worker lifetime must not be assumed continuous across yesterday and today.
+No explicit-job queue waits were recorded; hardware control-write behavior remains
+untested by this inspection.
+
+Within the explicit history window, the retained INFO logs contain 53 connection
+establishments identifying the Indevolt endpoint. Their 52 gaps have median
+19.554s, mean 20.768s, range 16.212–30.109s. Reconnect count is not failed-read
+count. At 09:23:43.741, tmodbus logged one unexpected transaction-ID-8 response
+and discarded it. The warning lacks an endpoint identifier; the raw MBAP header
+identifies unit 1, consistent with Indevolt, but endpoint attribution is not
+conclusive without a paired request trace. This bounded log window does not prove
+the absence of other errors. System-log search found a bootstrap warning rather
+than a current Indevolt-specific error.
+
+### Comparison and recommendation
+
+The roughly three-second successful polling achieved in yesterday's short trial
+is still present this morning: mean 2.999s versus 2.999s then; p95 is now 3.689s
+versus 3.332s. The longer run reveals occasional failures that the initial short
+trial did not capture. No recorded unavailability occurred in this morning's
+18-minute window, compared with three episodes in the original 0.2.0 baseline.
+Original battery state-change median was 19.171s, versus 3.026s now; SOC changes
+were 279–333s apart, versus about 120s now. The much earlier approximately
+eight-minute battery cadence has not returned in the measured sample.
+
+This is not an isolated test of disabling HTTP pollers: integration version,
+scheduler, regular interval, fast target, request spacing and workload all changed.
+The second HTTP poller remains unverified. Do not attribute the improvement solely
+to reduced HTTP traffic. Retain the current timing for now; the next useful
+validation is bounded control-write responsiveness with agreed operating limits,
+not further read-speed reduction. Connection-loss/late-response diagnosis remains
+worthwhile, but does not currently prevent near-three-second telemetry. No new
+monitor was scheduled by this follow-up.

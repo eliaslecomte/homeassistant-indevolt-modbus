@@ -155,7 +155,7 @@
         "name": "AC_WH_input"
       },
       "inv_input_power_174": {
-        "name": "INV input power"
+        "name": "Inverter AC power"
       },
       "ac_out_discharge_energy_196": {
         "name": "AC OUT discharge energy"
@@ -1448,10 +1448,10 @@
     "step": {
       "init": {
         "title": "Polling settings",
-        "description": "Regular registers are refreshed independently. Fast battery power polling targets a completion cadence (0 disables it). Regular reads may be deferred to reserve its next slot. Intervals are targets; all requests share one connection. Request spacing defaults to 2 seconds to stay below an observed 5-second connection idle timeout. The manufacturer recommends 5 seconds; the minimum is 1 second. Response times, writes and regular reads can delay fast updates. Saving reloads the integration.",
+        "description": "Regular registers are refreshed independently. Fast inverter AC power polling targets a completion cadence (0 disables it). Regular reads may be deferred to reserve its next slot. Intervals are targets; all requests share one connection. Request spacing defaults to 2 seconds to stay below an observed 5-second connection idle timeout. The manufacturer recommends 5 seconds; the minimum is 1 second. Response times, writes and regular reads can delay fast updates. Saving reloads the integration.",
         "data": {
           "scan_interval": "Regular polling interval",
-          "fast_poll_interval": "Battery power polling interval (0 = regular polling)",
+          "fast_poll_interval": "Inverter AC power polling interval (0 = regular polling)",
           "message_spacing": "Minimum spacing between requests"
         }
       }
