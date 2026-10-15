@@ -600,3 +600,55 @@ stale/unavailable feedback and tolerate the observed polling jitter. Further
 connection work should measure device closures separately from scheduler delay;
 this release changes decoding and the fast target, not connection recovery.
 Battery mode, setpoints, timing options and integration enablement were not changed.
+
+## 2026-10-15: 0.2.4 selectable fast polling, ACOutW benchmark
+
+Released 0.2.4 from `c3e63ab`; all 66 local tests, lint and GitHub validation
+checks passed. Installed through HACS and restarted Home Assistant. Runtime
+confirmed 0.2.4 loaded and legacy settings preserved. The options schema exposed
+the device sensor dropdown and collapsed Advanced polling section. Changed only
+`fast_poll_sensor` to `acout_w_1284` via the official options flow. The saved
+intervals remained fast 3 s, regular 120 s and request spacing 1 s. ACOutW was
+already enabled. No entity IDs, battery modes or power setpoints were changed.
+
+Diagnostics confirmed ACOutW as the sole fast group and inverter AC power (174),
+battery power (6564) and SOC as regular groups. ACOutW remains selected after
+this benchmark. To return to the prior target, select Inverter AC power in options.
+
+Explicit comparison window: `2026-10-15T20:39:04+02:00` through
+`2026-10-15T20:44:29+02:00` (325 seconds). Between diagnostic snapshots, counters
+increased by 160 successful group reads, zero failed reads and 16 disconnects.
+Since the options-triggered worker restart, totals were 175 successes, zero
+failures and 17 disconnects; ACOutW accounted for 115 successes. Its last 100
+gaps are a rolling subset of the worker lifetime, not every gap in the window.
+
+| Measurement | Seconds |
+| --- | --- |
+| ACOutW successful-poll gaps, latest 100 | mean 3.026, median 3.020, p95 3.376, min 2.610, max 4.096 |
+| ACOutW completion lateness, latest 100 | median 0.034, p95 0.618, max 1.702 |
+| Inverter AC power, two regular gaps | 120.364–120.829 |
+| Battery power, two regular gaps | 120.440–122.193 |
+| SOC, two regular gaps | 120.675–122.402 |
+| Read-operation durations including pacing/recovery, latest 100 | mean 0.607, median 0.432, p95 1.470, max 1.532 |
+
+At the final snapshot ACOutW age was 1.877 s, inverter AC 101.153 s, battery
+54.306 s and SOC 51.187 s. The current failed-field map was empty. Operation
+durations include pacing/recovery and are not measured wire latency. INFO logs
+still show remote closures followed by new connections to the Indevolt endpoint;
+the bounded inspected Modbus log window had no WARNING/ERROR lines from
+20:40 through 20:44. No debug logging was enabled.
+
+Recorder history over the explicit window, excluding synthetic boundary records:
+ACOutW had 100 numeric changes (-750 to -294 W), with median change gap 3.024 s,
+p95 4.096 s and maximum 11.889 s. Repeated equal readings can explain longer
+state-change gaps; these are not successful-poll gaps. Inverter AC had two numeric
+changes, battery three (448–555 W), and SOC three (29.2–30.1%). None of these
+entities became unavailable in the window. History returned no further pages.
+
+Immediately before deployment, 0.2.3's last 100 fast inverter AC gaps had mean
+3.069 s, median 2.969 s, p95 3.680 s and maximum 10.083 s. The earlier short
+0.2.3 startup benchmark had mean 3.030 s and maximum 4.542 s. ACOutW retains
+approximately the same three-second cadence. Different registers, workloads and
+rolling windows prevent attributing the lower maximum to this release. This short
+sample verifies target selection and cadence, not long-term reliability. Connection
+closures remain a separate issue; none caused a counted read failure in this run.
