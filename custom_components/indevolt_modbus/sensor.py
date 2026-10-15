@@ -26,6 +26,7 @@ UNITS = {
 # See indevolt-hacs/docs/sensor-defaults.md for sources and ambiguous matches.
 # Registry defaults apply only when HA creates an entity; never migrate choices.
 DEFAULT_ADDRESSES = {
+    1284,  # Total AC power, suggested fast feedback for energy accounting.
     89,  # System rated battery capacity (Wh).
     124,  # Daily PV generation (Wh).
     1269,  # Total battery charging energy (Wh).

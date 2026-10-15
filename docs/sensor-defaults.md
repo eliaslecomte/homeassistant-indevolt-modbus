@@ -119,3 +119,13 @@ The whole-component polling counts above describe the previous scheduler. Curren
 polling reads enabled register fields only and publishes each request immediately.
 See [entity defaults](entity-defaults.md#existing-installations-and-polling) for
 current request counts and the README for the optional fast battery power setting.
+
+
+## Selectable fast polling update
+
+ACOutW (1284) now defaults to enabled for newly created entities and is the
+fast-poll default for new configurations. This intentionally extends the original
+HTTP-aligned set above: it measures signed inverter-plus-bypass power for AC
+energy accounting, rather than claiming equivalence to an output-only HTTP
+sensor. Existing disabled/enabled registry choices are retained. Register 174
+remains available for users choosing inverter-only control feedback.

@@ -1448,11 +1448,19 @@
     "step": {
       "init": {
         "title": "Polling settings",
-        "description": "Regular registers are refreshed independently. Fast inverter AC power polling targets a completion cadence (0 disables it). Regular reads may be deferred to reserve its next slot. Intervals are targets; all requests share one connection. Request spacing defaults to 2 seconds to stay below an observed 5-second connection idle timeout. The manufacturer recommends 5 seconds; the minimum is 1 second. Response times, writes and regular reads can delay fast updates. Saving reloads the integration.",
+        "description": "Choose one enabled sensor for fast polling, or Disabled to use regular polling for all sensors. ACOutW includes inverter and bypass power and is suggested for energy accounting; Inverter AC power is useful for control feedback. Fast polling targets 3 seconds by default; advanced options can adjust it. All requests share one connection, so response times, writes and regular reads can delay updates. Request spacing defaults to 2 seconds; the manufacturer recommends 5 seconds. Saving reloads the integration.",
         "data": {
           "scan_interval": "Regular polling interval",
-          "fast_poll_interval": "Inverter AC power polling interval (0 = regular polling)",
-          "message_spacing": "Minimum spacing between requests"
+          "message_spacing": "Minimum spacing between requests",
+          "fast_poll_sensor": "Fast-polled sensor"
+        },
+        "sections": {
+          "advanced_polling": {
+            "name": "Advanced polling",
+            "data": {
+              "fast_poll_interval": "Fast polling interval"
+            }
+          }
         }
       }
     }

@@ -11,11 +11,16 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import section
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
 )
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
@@ -23,13 +28,17 @@ from modbus_connection import ModbusError, ModbusTcpParams
 
 from .const import (
     CONF_FAST_POLL_INTERVAL,
+    CONF_FAST_POLL_SENSOR,
     CONF_MESSAGE_SPACING,
     CONF_UNIT_ID,
+    DEFAULT_FAST_POLL_INTERVAL,
+    DEFAULT_FAST_POLL_SENSOR,
     DEFAULT_PORT,
     DEFAULT_UNIT_ID,
     DOMAIN,
     MESSAGE_SPACING,
     SCAN_INTERVAL,
+    fast_poll_sensor,
 )
 from .transport import async_get_temporary_unit
 from .vendor.indevolt_modbus import IndevoltDevice
@@ -88,7 +97,14 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
             if error := await self._validate(user_input):
                 errors["base"] = error
             else:
-                return self.async_create_entry(title="Indevolt", data=user_input)
+                return self.async_create_entry(
+                    title="Indevolt",
+                    data=user_input,
+                    options={
+                        CONF_FAST_POLL_SENSOR: DEFAULT_FAST_POLL_SENSOR,
+                        CONF_FAST_POLL_INTERVAL: DEFAULT_FAST_POLL_INTERVAL,
+                    },
+                )
         return self.async_show_form(
             step_id="discovery_confirm",
             data_schema=self.add_suggested_values_to_schema(
@@ -130,7 +146,14 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 # No documented hardware identity register with a known length.
                 # The entry id provides stable entity ids across reconfiguration.
-                return self.async_create_entry(title="Indevolt", data=user_input)
+                return self.async_create_entry(
+                    title="Indevolt",
+                    data=user_input,
+                    options={
+                        CONF_FAST_POLL_SENSOR: DEFAULT_FAST_POLL_SENSOR,
+                        CONF_FAST_POLL_INTERVAL: DEFAULT_FAST_POLL_INTERVAL,
+                    },
+                )
         return self.async_show_form(step_id="user", data_schema=SCHEMA, errors=errors)
 
     async def async_step_reconfigure(
@@ -158,71 +181,101 @@ class IndevoltConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class IndevoltOptionsFlow(OptionsFlowWithReload):
-    """Configure regular reads, optional fast battery reads and request pacing."""
+    """Configure regular reads, optional fast sensor reads and request pacing."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Save polling settings and reload to apply the new schedule."""
-        if user_input is not None:
-            return self.async_create_entry(
-                data={**self.config_entry.options, **user_input}
+        selected = fast_poll_sensor(self.config_entry.options)
+        registry = er.async_get(self.hass)
+        sensors = {
+            entity.unique_id.removeprefix(f"{self.config_entry.entry_id}_"): entity
+            for entity in er.async_entries_for_config_entry(
+                registry, self.config_entry.entry_id
             )
-        return self.async_show_form(
-            step_id="init",
-            data_schema=probatio.Schema(
-                {
-                    probatio.Required(
-                        CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(
-                            CONF_SCAN_INTERVAL, SCAN_INTERVAL
-                        ),
-                    ): probatio.All(
-                        NumberSelector(
-                            NumberSelectorConfig(
-                                min=5,
-                                max=3600,
-                                step=1,
-                                unit_of_measurement="s",
-                                mode=NumberSelectorMode.BOX,
-                            )
-                        ),
-                        probatio.Coerce(int),
-                    ),
-                    probatio.Required(
-                        CONF_FAST_POLL_INTERVAL,
-                        default=self.config_entry.options.get(
-                            CONF_FAST_POLL_INTERVAL, 0
-                        ),
-                    ): probatio.All(
-                        NumberSelector(
-                            NumberSelectorConfig(
-                                min=0,
-                                max=3600,
-                                step=1,
-                                unit_of_measurement="s",
-                                mode=NumberSelectorMode.BOX,
-                            )
-                        ),
-                        probatio.Coerce(int),
-                    ),
-                    probatio.Required(
-                        CONF_MESSAGE_SPACING,
-                        default=self.config_entry.options.get(
-                            CONF_MESSAGE_SPACING, MESSAGE_SPACING
-                        ),
-                    ): probatio.All(
-                        NumberSelector(
-                            NumberSelectorConfig(
-                                min=1,
-                                max=60,
-                                step=1,
-                                unit_of_measurement="s",
-                                mode=NumberSelectorMode.BOX,
-                            )
-                        ),
-                        probatio.Coerce(int),
-                    ),
-                }
+            if entity.domain == "sensor" and not entity.disabled
+        }
+        # Keep a saved selection visible if its entity was subsequently disabled.
+        choices = [{"value": "", "label": "Disabled"}]
+        for key, entity in sensors.items():
+            name = entity.name or entity.original_name or entity.entity_id
+            choices.append({"value": key, "label": f"{name} ({entity.entity_id})"})
+        if selected and selected not in sensors:
+            choices.append({"value": selected, "label": selected})
+        if user_input is not None:
+            advanced = user_input.pop("advanced_polling", {})
+            return self.async_create_entry(
+                data={**self.config_entry.options, **user_input, **advanced}
+            )
+        fields = {
+            probatio.Required(CONF_FAST_POLL_SENSOR, default=selected): SelectSelector(
+                SelectSelectorConfig(options=choices, mode=SelectSelectorMode.DROPDOWN)
             ),
+            probatio.Required(
+                CONF_SCAN_INTERVAL,
+                default=self.config_entry.options.get(
+                    CONF_SCAN_INTERVAL, SCAN_INTERVAL
+                ),
+            ): probatio.All(
+                NumberSelector(
+                    NumberSelectorConfig(
+                        min=5,
+                        max=3600,
+                        step=1,
+                        unit_of_measurement="s",
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
+                probatio.Coerce(int),
+            ),
+            probatio.Required(
+                CONF_FAST_POLL_INTERVAL,
+                default=self.config_entry.options.get(
+                    CONF_FAST_POLL_INTERVAL, DEFAULT_FAST_POLL_INTERVAL
+                )
+                or DEFAULT_FAST_POLL_INTERVAL,
+            ): probatio.All(
+                NumberSelector(
+                    NumberSelectorConfig(
+                        min=1,
+                        max=3600,
+                        step=1,
+                        unit_of_measurement="s",
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
+                probatio.Coerce(int),
+            ),
+            probatio.Required(
+                CONF_MESSAGE_SPACING,
+                default=self.config_entry.options.get(
+                    CONF_MESSAGE_SPACING, MESSAGE_SPACING
+                ),
+            ): probatio.All(
+                NumberSelector(
+                    NumberSelectorConfig(
+                        min=1,
+                        max=60,
+                        step=1,
+                        unit_of_measurement="s",
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
+                probatio.Coerce(int),
+            ),
+        }
+        advanced_fields = {
+            key: value
+            for key, value in fields.items()
+            if key.schema == CONF_FAST_POLL_INTERVAL
+        }
+        fields = {
+            key: value
+            for key, value in fields.items()
+            if key.schema != CONF_FAST_POLL_INTERVAL
+        }
+        fields[probatio.Optional("advanced_polling")] = section(
+            probatio.Schema(advanced_fields), {"collapsed": True}
         )
+        return self.async_show_form(step_id="init", data_schema=probatio.Schema(fields))

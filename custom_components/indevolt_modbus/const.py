@@ -1,11 +1,16 @@
 """Constants for the Indevolt integration."""
 
+from collections.abc import Mapping
+from typing import Any
+
 DOMAIN = "indevolt_modbus"
 CONF_UNIT_ID = "unit_id"
 DEFAULT_PORT = 8899
 DEFAULT_UNIT_ID = 1
 SCAN_INTERVAL = 30
-FAST_POLL_REGISTER = 174
+CONF_FAST_POLL_SENSOR = "fast_poll_sensor"
+DEFAULT_FAST_POLL_SENSOR = "acout_w_1284"
+DEFAULT_FAST_POLL_INTERVAL = 3
 CONF_FAST_POLL_INTERVAL = "fast_poll_interval"
 CONF_MESSAGE_SPACING = "message_spacing"
 MESSAGE_SPACING = 2
@@ -23,3 +28,11 @@ NUMBER_RANGES = {
 }
 SELECT_ADDRESSES = {1144, 1150, 7265}
 SWITCH_ADDRESSES = {1143, 7266, 7267, 7272}
+
+
+def fast_poll_sensor(options: Mapping[str, Any]) -> str:
+    """Preserve legacy enabled/disabled polling until options are saved."""
+    return options.get(
+        CONF_FAST_POLL_SENSOR,
+        "inv_input_power_174" if options.get(CONF_FAST_POLL_INTERVAL, 0) else "",
+    )

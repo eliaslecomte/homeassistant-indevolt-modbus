@@ -18,7 +18,8 @@ async def async_get_config_entry_diagnostics(
     return {
         "polling": {
             "regular_interval": coordinator.regular_interval,
-            "fast_ac_power_interval": coordinator.fast_interval,
+            "fast_poll_interval": coordinator.fast_interval,
+            "fast_poll_sensor": coordinator.fast_sensor,
             "message_spacing": coordinator.message_spacing,
             "read_duration_seconds_including_pacing": list(coordinator.read_durations),
             "disconnect_count_since_start": coordinator.disconnect_count,

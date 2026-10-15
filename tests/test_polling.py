@@ -273,3 +273,43 @@ async def test_ac_fast_target_leaves_battery_regular(hass, unit, monkeypatch):
     assert not coordinator.is_fresh(registers[174])
     assert coordinator.is_fresh(registers[6564])
     await coordinator.async_shutdown()
+
+
+@pytest.mark.parametrize("target", ["acout_w_1284", "battery_power_6564", ""])
+async def test_selected_fast_sensor_controls_schedule_and_freshness(
+    hass, unit, monkeypatch, target
+):
+    clock = [100.0]
+    monkeypatch.setattr(
+        "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
+    )
+    coordinator, registers = await ready(
+        hass,
+        unit,
+        [1284, 174, 6564],
+        fast_poll_sensor=target,
+        scan_interval=120,
+        message_spacing=1,
+    )
+    coordinator._sync_groups()
+    fast = [g for g in coordinator._groups if g.fast]
+    assert [key for g in fast for key in g.reader.resolved_fields] == (
+        [target] if target else []
+    )
+    assert coordinator.fast_interval == (3 if target else 0)
+    for register in registers.values():
+        coordinator.last_success[register.key] = clock[0]
+    clock[0] += 13
+    for address in (1284, 174, 6564):
+        assert coordinator.is_fresh(registers[address]) == (
+            registers[address].key != target
+        )
+
+
+async def test_explicit_disabled_overrides_saved_interval(hass, unit):
+    coordinator, _ = await ready(
+        hass, unit, [1284, 174], fast_poll_sensor="", fast_poll_interval=3
+    )
+    coordinator._sync_groups()
+    assert coordinator.fast_interval == 0
+    assert not any(g.fast for g in coordinator._groups)

@@ -11,7 +11,21 @@ from custom_components.indevolt_modbus.vendor.indevolt_modbus import REGISTERS
 
 DOMAIN = "indevolt_modbus"
 PREFIX = "custom_components.indevolt_modbus"
-EXPECTED_SENSORS = {89, 124, 1269, 1271, 2250, 6563, 6564, 7512, 7519, 7521, 7553, 7599}
+EXPECTED_SENSORS = {
+    1284,
+    89,
+    124,
+    1269,
+    1271,
+    2250,
+    6563,
+    6564,
+    7512,
+    7519,
+    7521,
+    7553,
+    7599,
+}
 EXPECTED_CONTROLS = {
     "number": {1138, 1142, 1146, 1147},
     "select": {1144, 7265},
@@ -58,7 +72,7 @@ async def test_new_entity_defaults_and_polling(hass, unit, version):
         await coordinator.async_refresh()
         assert coordinator.data.updated == components
         # Only enabled fields are read; adjacent selected fields share a request.
-        assert len(unit.read_events) == (17 if version == 17 else 18)
+        assert len(unit.read_events) == (18 if version == 17 else 19)
         assert coordinator.regular_interval == 30
         assert await hass.config_entries.async_unload(entry.entry_id)
 

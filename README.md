@@ -65,21 +65,34 @@ Under **Settings → Devices & services → Indevolt Modbus → Configure**:
 | Setting | Default | Range | Meaning |
 | --- | --- | --- | --- |
 | Regular polling interval | 30 s | 5–3600 s | Wait after each regular register group's completed read |
-| Inverter AC power polling interval | 0 (off) | 0–3600 s | Target completion cadence for inverter AC power (174); 0 uses regular polling |
+| Fast-polled sensor | ACOutW for new setups | Enabled sensors on this device, or Disabled | Select one sensor for fast polling; Disabled puts everything on regular polling |
+| Fast polling interval (advanced) | 3 s | 1–3600 s | Target completion cadence for the selected sensor |
 | Minimum spacing between requests | 2 s | 1–60 s | Shared pacing for reads and writes |
 
-Fast polling uses the existing Inverter AC power entity; it does not create a duplicate
-or enable a disabled entity. SOC remains on regular polling. Saving reloads the
-integration. Existing saved interval and request-spacing settings are preserved.
-To try the shorter spacing on an existing installation, explicitly select 2 seconds.
+Fast polling uses the selected existing sensor; it does not create a duplicate.
+The dropdown lists enabled sensors belonging to this device. ACOutW (1284), which
+includes inverter and bypass power, is the default for new setups and is enabled
+by default for newly created entities. Inverter AC power (174) is useful for
+control feedback. Choose **Disabled** (stored as an empty selection) to turn fast
+polling off. Enable a disabled sensor in the entity list before selecting it.
+
+Existing installations retain their previous enabled/disabled state and interval:
+legacy enabled fast polling selects Inverter AC power. Existing entity enablement
+choices are preserved. A saved selection that becomes disabled stays visible but
+is not polled until re-enabled. Entity renames are safe because the selection is
+stored as a stable register key. Other sensors use regular polling.
+
+Expand **Advanced polling** to adjust the fast interval. Selecting
+a sensor uses three seconds unless a positive interval was previously saved.
+Saving reloads the integration; regular interval and request spacing are preserved.
 
 All intervals are best-effort targets. One worker serializes operations, prioritizes
 writes plus their targeted readbacks, and interleaves fast reads with regular work.
-The scheduler reserves the next inverter AC power slot using an adaptive response-time estimate
+The scheduler reserves the next selected sensor slot using an adaptive response-time estimate
 and skips missed slots without catch-up bursts. At least one due regular request
 gets a turn between fast reads. Writes remain highest priority. Response time,
 pacing, connection recovery, and writes can extend the observed interval. A 2-second
-inverter AC power target with 5-second pacing cannot produce 2-second updates. The manufacturer
+fast target with 5-second pacing cannot produce 2-second updates. The manufacturer
 recommends at least 5 seconds between requests and supports a minimum of 1 second;
 The 2-second default is an experiment to stay below the approximately 5-second
 idle connection closures observed during profiling; hardware behavior may vary. Changing a setting no longer requests a
@@ -177,13 +190,11 @@ The response-time estimate is scheduling feedback, not measured wire latency.
 
 ### Fast polling target and power direction
 
-Fast polling now targets **Inverter AC power (174)**. The saved `fast_poll_interval`
-value is retained and applies to register 174 instead of Battery power (6564).
-Enable Inverter AC power in the device's entity list if it is disabled; selecting
-a fast interval does not automatically enable it. Battery power, SOC and total
-AC power (1284) use regular polling. Existing entity IDs and unique IDs are retained.
-Diagnostics now label the interval `fast_ac_power_interval` instead of
-`fast_battery_interval`; historical profiling documents describe the old target.
+Fast polling and freshness checks follow the sensor selected in options.
+Diagnostics report `fast_poll_sensor` (stable register key, empty when disabled)
+and `fast_poll_interval` (effective interval, zero when disabled). These replace
+`fast_ac_power_interval`; historical profiling documents describe earlier targets.
+Existing entity IDs and unique IDs are retained.
 
 Register 174 is positive for AC charging/input and negative for discharging/output.
 Battery power (6564) uses the opposite convention: positive discharge, negative

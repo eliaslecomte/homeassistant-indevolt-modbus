@@ -27,7 +27,7 @@ async def test_interval_and_options_defaults(hass, unit, interval):
     assert result["type"] is FlowResultType.FORM
     assert result["data_schema"]({}) == {
         CONF_SCAN_INTERVAL: interval or 30,
-        "fast_poll_interval": 0,
+        "fast_poll_sensor": "",
         "message_spacing": 2,
     }
     for invalid in (0, -1, 4, 3601, "not a number"):
@@ -63,7 +63,7 @@ async def test_options_reload_applies_interval_and_releases_unit(hass, unit):
         await hass.async_block_till_done()
         assert entry.options == {
             CONF_SCAN_INTERVAL: 120,
-            "fast_poll_interval": 0,
+            "fast_poll_sensor": "",
             "message_spacing": 2,
         }
         assert entry.data == DATA
@@ -89,26 +89,45 @@ async def test_options_preserve_other_settings(hass):
     assert entry.options == {
         "future_setting": True,
         CONF_SCAN_INTERVAL: 60,
-        "fast_poll_interval": 0,
+        "fast_poll_sensor": "",
         "message_spacing": 5,
     }
 
 
 async def test_fast_poll_options_validate_and_apply(hass, unit):
-    entry = MockConfigEntry(domain=DOMAIN, data=DATA)
+    entry = MockConfigEntry(domain=DOMAIN, data=DATA, options={"fast_poll_interval": 2})
     entry.add_to_hass(hass)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_init(
+        entry.entry_id, context={"show_advanced_options": True}
+    )
     schema = result["data_schema"]
     for field, values in {
-        "fast_poll_interval": [-1, 3601],
+        "fast_poll_interval": [0, -1, 3601],
         "message_spacing": [0, -1, 61],
     }.items():
         for value in values:
             with pytest.raises(probatio.Invalid):
-                schema({field: value})
-    options = {CONF_SCAN_INTERVAL: 60, "fast_poll_interval": 2, "message_spacing": 1}
+                schema(
+                    {"advanced_polling": {field: value}}
+                    if field == "fast_poll_interval"
+                    else {field: value}
+                )
+    options = {
+        CONF_SCAN_INTERVAL: 60,
+        "fast_poll_interval": 2,
+        "message_spacing": 1,
+        "fast_poll_sensor": "inv_input_power_174",
+    }
     with patch.object(hass.config_entries, "async_reload", new_callable=AsyncMock):
-        await hass.config_entries.options.async_configure(result["flow_id"], options)
+        await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                key: value
+                for key, value in options.items()
+                if key != "fast_poll_interval"
+            }
+            | {"advanced_polling": {"fast_poll_interval": 2}},
+        )
         await hass.async_block_till_done()
     assert entry.options == options
     with patch(f"{PREFIX}.async_get_unit", AsyncMock(return_value=unit)):
@@ -119,3 +138,72 @@ async def test_fast_poll_options_validate_and_apply(hass, unit):
         assert coordinator.fast_interval == 2
         assert coordinator.device.modbus_unit._message_spacing == 1
         assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_sensor_selector_scoped_and_stable_across_rename(hass):
+    from homeassistant.helpers import entity_registry as er
+
+    entry = MockConfigEntry(domain=DOMAIN, data=DATA)
+    entry.add_to_hass(hass)
+    other = MockConfigEntry(domain=DOMAIN, data={**DATA, "host": "192.0.2.11"})
+    other.add_to_hass(hass)
+    registry = er.async_get(hass)
+    selected = registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_acout_w_1284",
+        config_entry=entry,
+        original_name="ACOutW",
+    )
+    registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_inv_input_power_174",
+        config_entry=entry,
+        disabled_by=er.RegistryEntryDisabler.USER,
+    )
+    registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{other.entry_id}_battery_power_6564",
+        config_entry=other,
+    )
+    registry.async_get_or_create(
+        "number",
+        DOMAIN,
+        f"{entry.entry_id}_back_up_soc_1142",
+        config_entry=entry,
+    )
+    registry.async_update_entity(selected.entity_id, new_entity_id="sensor.renamed_ac")
+    with patch.object(hass.config_entries, "async_reload", new_callable=AsyncMock):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        schema = result["data_schema"]
+        assert "fast_poll_interval" not in {str(k) for k in schema.schema}
+        for invalid in (
+            "battery_power_6564",
+            "inv_input_power_174",
+            "back_up_soc_1142",
+        ):
+            with pytest.raises(probatio.Invalid):
+                schema({"fast_poll_sensor": invalid})
+        await hass.config_entries.options.async_configure(
+            result["flow_id"], {"fast_poll_sensor": "acout_w_1284"}
+        )
+        await hass.async_block_till_done()
+    assert entry.options["fast_poll_sensor"] == "acout_w_1284"
+    assert registry.async_get("sensor.renamed_ac") is not None
+
+
+@pytest.mark.parametrize("interval,target", [(0, ""), (5, "inv_input_power_174")])
+async def test_legacy_selection_preserves_interval_on_save(hass, interval, target):
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=DATA, options={"fast_poll_interval": interval}
+    )
+    entry.add_to_hass(hass)
+    with patch.object(hass.config_entries, "async_reload", new_callable=AsyncMock):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        assert result["data_schema"]({})["fast_poll_sensor"] == target
+        await hass.config_entries.options.async_configure(result["flow_id"], {})
+        await hass.async_block_till_done()
+    assert entry.options["fast_poll_interval"] == interval
+    assert entry.options["fast_poll_sensor"] == target

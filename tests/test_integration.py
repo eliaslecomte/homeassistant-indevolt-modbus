@@ -31,6 +31,10 @@ async def test_flow_and_duplicate(hass, unit):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], DATA)
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"] == DATA
+        assert result["options"] == {
+            "fast_poll_sensor": "acout_w_1284",
+            "fast_poll_interval": 3,
+        }
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": "user"}, data=DATA
         )

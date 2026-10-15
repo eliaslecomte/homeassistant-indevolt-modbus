@@ -17,10 +17,11 @@ from modbus_connection.model import UpdateReport
 from .const import (
     CONF_FAST_POLL_INTERVAL,
     CONF_MESSAGE_SPACING,
+    DEFAULT_FAST_POLL_INTERVAL,
     DOMAIN,
-    FAST_POLL_REGISTER,
     MESSAGE_SPACING,
     SCAN_INTERVAL,
+    fast_poll_sensor,
 )
 from .vendor.indevolt_modbus import IndevoltComponent, IndevoltDevice, Register
 
@@ -64,7 +65,15 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         super().__init__(hass, _LOGGER, config_entry=entry, name=DOMAIN)
         self.device = device
         self.regular_interval = entry.options.get(CONF_SCAN_INTERVAL, SCAN_INTERVAL)
-        self.fast_interval = entry.options.get(CONF_FAST_POLL_INTERVAL, 0)
+        self.fast_sensor = fast_poll_sensor(entry.options)
+        self.fast_interval = (
+            (
+                entry.options.get(CONF_FAST_POLL_INTERVAL, 0)
+                or DEFAULT_FAST_POLL_INTERVAL
+            )
+            if self.fast_sensor
+            else 0
+        )
         self.message_spacing = entry.options.get(CONF_MESSAGE_SPACING, MESSAGE_SPACING)
         self.values: dict[str, Any] = {}
         self.last_success: dict[str, float] = {}
@@ -91,7 +100,7 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         """Reject cached values that have missed several polling opportunities."""
         interval = (
             self.fast_interval
-            if register.address == FAST_POLL_REGISTER and self.fast_interval
+            if register.key == self.fast_sensor and self.fast_interval
             else self.regular_interval
         )
         budget = max(3 * interval, 4 * (self.message_spacing + 2))
@@ -121,7 +130,7 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         return group.due if group.failures else group.due - self._response_estimate
 
     def _regular_fits(self, fast: ReadGroup, now: float) -> bool:
-        # A regular response, the next pacing gap, then the inverter AC response.
+        # A regular response, the next pacing gap, then the selected fast response.
         finish = (
             now
             + self._pacing_remaining(now)
@@ -139,9 +148,7 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         fast = {
             r.key
             for r in self.device.registers
-            if r.address == FAST_POLL_REGISTER
-            and r.key in contexts
-            and self.fast_interval
+            if r.key == self.fast_sensor and r.key in contexts and self.fast_interval
         }
         previous = {tuple(g.reader.resolved_fields): g for g in self._groups}
         groups = []

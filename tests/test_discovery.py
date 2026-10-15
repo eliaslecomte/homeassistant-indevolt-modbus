@@ -52,6 +52,10 @@ async def test_discovery_confirm(hass):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"] == data
+        assert result["options"] == {
+            "fast_poll_sensor": "acout_w_1284",
+            "fast_poll_interval": 3,
+        }
         assert result["result"].unique_id is None
         validate.assert_awaited_once_with(data)
 
