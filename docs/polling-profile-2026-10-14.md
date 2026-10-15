@@ -523,3 +523,80 @@ validation is bounded control-write responsiveness with agreed operating limits,
 not further read-speed reduction. Connection-loss/late-response diagnosis remains
 worthwhile, but does not currently prevent near-three-second telemetry. No new
 monitor was scheduled by this follow-up.
+
+## 2026-10-15: 0.2.3 signed ACOutW and fast inverter AC power
+
+Released integration 0.2.3 from `520c697` with vendored library correction
+`199cdaf`. Both repositories were pushed and all GitHub checks passed;
+local validation passed 40 library and 59 integration tests. HACS installed
+0.2.3 and Home Assistant Core restarted successfully. Runtime diagnostics
+confirmed version 0.2.3, loaded state, and preserved settings: regular 120 s,
+fast AC power 3 s, request spacing 1 s. Register 174 is the sole fast group;
+6564, SOC and 1284 are regular groups. There are 21 selected groups.
+
+The existing entity ID `sensor.indevolt_inv_input_power` remains unchanged,
+with display name “Indevolt Inverter AC power”. ACOutW reported -1176 W at
+19:46:30, confirming negative values now reach HA. The live sample also showed
+negative inverter AC power and positive battery discharge power. These are
+asynchronous readings of different quantities, not an equality check. No raw
+wire capture was taken to reproduce the exact 63609 example during this run;
+that conversion and all requested int16 boundaries are covered by tests.
+
+### Successful polls and timing
+
+Worker startup was approximately 2026-10-15T19:45:50+02:00. The final diagnostics
+snapshot was taken around 2026-10-15T19:50:48+02:00. Cumulative counters showed
+156 successful group reads, zero failures and 15 disconnects. Between diagnostic
+snapshots at approximately 19:47:09 and 19:50:48, counters increased by 109
+successful reads, zero failures and 11 disconnects.
+
+| Metric | Result (seconds) |
+| --- | --- |
+| AC successful-poll gaps, 98 gaps / 99 successes | mean 3.030, median 2.973, p95 4.147, range 1.588–4.542 |
+| AC completion lateness, 98 samples | median 0.041, p95 1.191, max 1.542 |
+| Battery successful-poll gaps, 2 gaps | 122.745–123.403 |
+| ACOutW successful-poll gaps, 2 gaps | 123.112–123.392 |
+| SOC successful-poll gap, 1 gap | 123.043 |
+| Last 100 read-operation durations including pacing/recovery | mean 0.731, median 0.483, p95 1.440, max 2.913 |
+
+At the final snapshot AC age was 1.309 s, battery 2.742 s, ACOutW 11.448 s,
+and SOC 122.868 s; the current failed-field map was empty. Regular telemetry
+runs a few seconds beyond the configured interval in this sample. Operation
+durations are not wire response times; successful-poll gaps include scheduling
+and recovery. INFO logs show repeated remote closures followed by connections
+to the Indevolt endpoint. The connection issue persists despite zero failed
+reads during this short observation. Logging levels were not changed.
+
+### Recorder history versus polls
+
+Explicit history range: `2026-10-15T19:47:09+02:00` through
+`2026-10-15T19:50:48+02:00`, excluding synthetic start-boundary records.
+There were 62 numeric AC state changes (-808 to -509 W), no unavailable states,
+and 61 state-change gaps: median 3.021 s, mean 3.541 s, p95 6.042 s, maximum
+13.108 s. That longer state-change gap does not imply missing polls: equal
+consecutive values do not produce recorder state changes. Diagnostics measured
+a maximum successful-poll gap of 4.542 s over the larger startup window.
+ACOutW had two changes (-656 and -649 W), battery two (681 and 712 W), and SOC
+one (42.8%). None became unavailable in this history window; all history results
+were unpaginated/complete.
+
+### Comparison and limitations
+
+Immediately before deployment, 0.2.2's last 100 fast battery poll gaps averaged
+3.032 s (median 3.021, p95 3.928, maximum 4.416). Its last 100 operation durations
+averaged 0.599 s (median 0.407, p95 1.398, maximum 2.103). The new AC target thus
+retains roughly three-second polling, with modestly greater tail latency in this
+short sample. This is not evidence of a performance regression: target register,
+startup workload, device load and observation windows differ. Both are much
+faster than the original 0.2.0 state-change median of 19.171 s and the earlier
+approximately eight-minute battery updates, but those are different metrics and
+configurations. This run does not establish long-term reliability or a causal
+change from disabling HTTP integrations.
+
+Use `sensor.indevolt_inv_input_power` for the fast feedback signal, retaining
+positive = AC input/charging and negative = AC output/discharging. Battery power
+now intentionally updates on the regular interval. A control loop should handle
+stale/unavailable feedback and tolerate the observed polling jitter. Further
+connection work should measure device closures separately from scheduler delay;
+this release changes decoding and the fast target, not connection recovery.
+Battery mode, setpoints, timing options and integration enablement were not changed.
