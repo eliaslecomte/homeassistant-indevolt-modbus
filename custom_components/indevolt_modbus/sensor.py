@@ -12,11 +12,16 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import NUMBER_RANGES, SELECT_ADDRESSES, SWITCH_ADDRESSES
 from .coordinator import IndevoltConfigEntry
 from .entity import IndevoltEntity
+from .formatting import format_register_value
 from .vendor.indevolt_modbus import Register
 
 PARALLEL_UPDATES = 0
 UNITS = {
     "W": SensorDeviceClass.POWER,
+    "VA": SensorDeviceClass.APPARENT_POWER,
+    "var": SensorDeviceClass.REACTIVE_POWER,
+    "h": SensorDeviceClass.DURATION,
+    "min": SensorDeviceClass.DURATION,
     "V": SensorDeviceClass.VOLTAGE,
     "A": SensorDeviceClass.CURRENT,
     "Hz": SensorDeviceClass.FREQUENCY,
@@ -125,4 +130,15 @@ class IndevoltSensor(IndevoltEntity, SensorEntity):
     def native_value(self) -> int | float | str | None:
         """Return the decoded value, including None for unknown codes."""
         value = self.coordinator.value(self.register)
-        return str(int(value)) if value is not None and self.register.options else value
+        if value is None:
+            return None
+        if self.register.display_format:
+            return format_register_value(int(value), self.register.display_format)
+        return str(int(value)) if self.register.options else value
+
+    @property
+    def extra_state_attributes(self) -> dict[str, int | float | None] | None:
+        """Retain the raw value for diagnosis of formatted versions and times."""
+        if self.register.display_format:
+            return {"raw_value": self.coordinator.value(self.register)}
+        return None

@@ -652,3 +652,65 @@ approximately the same three-second cadence. Different registers, workloads and
 rolling windows prevent attributing the lower maximum to this release. This short
 sample verifies target selection and cadence, not long-term reliability. Connection
 closures remain a separate issue; none caused a counted read failure in this run.
+
+## 2026-10-16 morning follow-up: sustained ACOutW polling
+
+Read-only follow-up at approximately 09:30 Europe/Brussels. Runtime version is
+0.2.4, loaded, with ACOutW (`acout_w_1284`) selected at 3 s, regular interval
+120 s and request spacing 1 s. There are 21 selected groups and no pending writes
+or explicit refresh reads. The built-in Indevolt HTTP entry remains user-disabled
+and not loaded. The second previously reported HTTP poller could not be identified
+from the available entries; EVCC remains loaded, which alone does not establish
+whether its backend is polling this device. No settings or logging levels changed.
+
+Explicit history window: `2026-10-16T09:12:00+02:00` to
+`2026-10-16T09:30:00+02:00`. All results were complete without pagination; synthetic
+start-boundary records were excluded from change counts and gap calculations.
+
+| Metric | Result |
+| --- | --- |
+| ACOutW latest 100 successful-poll gaps | mean 3.007 s, median 3.020 s, p95 3.894 s, range 1.438–4.301 s |
+| ACOutW latest 100 completion lateness samples | median 0.116 s, p95 1.022 s, max 1.364 s |
+| Battery latest 100 successful-poll gaps | mean 120.644 s, median 120.425 s, p95 121.753 s, max 121.965 s |
+| SOC latest 100 successful-poll gaps | mean 120.645 s, median 120.422 s, p95 121.855 s, max 122.060 s |
+| Last 100 read-operation durations including pacing/recovery | mean 0.531 s, median 0.404 s, p95 1.327 s, max 1.493 s |
+| ACOutW recorder changes | 258 numeric changes; 257 gaps: median 3.071 s, mean 3.537 s, p95 6.859 s, max 10.338 s |
+| Battery recorder changes | 9 numeric changes; median gap 120.450 s, range 120.167–121.849 s |
+| SOC recorder changes | 8 numeric changes; median gap 120.427 s, range 120.259–121.795 s |
+
+No unavailable/unknown states were returned for these three entities in the
+history window. ACOutW's final recorded change was to 0 W at 09:27:11; its remaining
+unchanged tail to 09:30 is not an outage or included in numeric change-gap
+statistics. Successful polls can return identical values without recorder changes.
+
+Snapshot ages: ACOutW 0.112 s, battery power 55.319 s, SOC 51.906 s. Current
+failed-field map is empty. Diagnostics also retain a 40150-second-old cached value
+for register 196, which is not in any selected polling group; this does not mean
+an active selected field has stalled.
+
+Cumulative worker counters: 22099 successful group reads and 10 failures
+(approximately 0.045% of attempts), with 2216 disconnects. ACOutW accounts for
+14740 successes and 5 failures; battery 368 successes/0 failures; SOC 367
+successes/1 failure. These are worker-lifetime totals, not failure counts for the
+18-minute history window. Worker lifetime was not independently established in
+this follow-up. The bounded INFO log fetch covers the entire requested window:
+54 connection-establishment lines identify the Indevolt endpoint, with repeated
+remote-closure lines and no Modbus WARNING/ERROR lines within the window. Generic
+closure lines do not carry endpoint identity, so they are not independently counted
+as exact device-specific failures. Wire latency was not measured; operation
+durations include pacing/recovery and scheduler gaps are a separate metric.
+
+Compared with the original 0.2.0 baseline, read-operation median has fallen from
+approximately 8.5 s to 0.404 s, and no unavailability was observed here versus
+three episodes then. Battery now deliberately runs on the 120-second regular
+schedule, so its state-change cadence must not be compared as the same fast-target
+metric with the original 19.171-second median (or earlier eight-minute updates).
+SOC changes are around 120 seconds versus the original 279–333 seconds. ACOutW's
+successful-poll cadence remains similar to the 0.2.4 installation benchmark
+(median 3.020 s then and now; maximum 4.096 s then versus 4.301 s now).
+
+The changed release, scheduler, target register, timing settings and workload all
+confound attribution to removing HTTP pollers. Current performance supports keeping
+the selected three-second target; remaining connection closures and rare read
+failures deserve separate investigation before claiming long-term fault-free
+operation. No control changes were made.

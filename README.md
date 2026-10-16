@@ -202,3 +202,15 @@ charge. Neither value is sign-inverted. Total inverter-plus-bypass AC power
 (ACOutW, 1284) now decodes as signed int16: raw 63609 becomes -1927 W.
 The vendor's uint16 type conflicts with its directional description; the
 [canonical library documentation](https://github.com/eliaslecomte/indevolt-modbus#directional-ac-power-correction) records the correction.
+## Register display formats
+
+Firmware and protocol versions use their documented `V…` notation. Packed
+schedule/sleep times display as `HH:MM`; split device clock fields display their
+individual year/month, day/hour, or minute/second values. These text sensors keep
+the original numeric value in a `raw_value` attribute. Invalid packed clock
+values display as unknown instead of an impossible time. Entity IDs are unchanged.
+
+Forced-full-charge interval uses days (`d`); forced AC charging power uses watts.
+Apparent power, reactive power, and durations have their corresponding Home
+Assistant device classes. Enum states retain stable numeric codes and translated
+UI labels. Unknown codes and device-rejected reads are not replaced with zero.
