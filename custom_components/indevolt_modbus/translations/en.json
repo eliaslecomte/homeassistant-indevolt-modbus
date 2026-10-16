@@ -1313,11 +1313,7 @@
         "name": "Microinverter generation energy"
       },
       "day_microinverter_generation_energy_7547": {
-        "name": "Day Microinverter generation energy",
-        "state": {
-          "0": "OFF",
-          "1": "ON"
-        }
+        "name": "Day Microinverter generation energy"
       },
       "day_on_grid_output_energy_7549": {
         "name": "Day  On_Grid output energy"

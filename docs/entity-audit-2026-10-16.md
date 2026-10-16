@@ -34,7 +34,7 @@ in the descriptions. Versions/time formats are explicitly documented.
 - PV status registers 2247/2268/2288 each returned code **1**, confirmed by decoder
   warnings at 16:22:16–16:22:31. The vendor defines only 1003–1011. Keep unknown;
   mapping 1 to OFF or SLEEPING would be a guess. Requires vendor clarification.
-- The shared read of microinverter counters 7545–7548 returned IllegalDataValueError.
+- The shared read of microinverter counters 7545–7547 returned IllegalDataValueError (wire exception 03).
   This does not identify which individual counter caused rejection. Unavailable
   is appropriate; protocol-version support alone does not guarantee every optional
   hardware feature. Do not invent zero energy or suppress exceptions.
@@ -57,7 +57,7 @@ in the descriptions. Versions/time formats are explicitly documented.
 
 ## Validation
 
-Library: 40 tests plus Ruff and mypy. Integration: 90 tests plus Ruff, including
+Library: 41 tests plus Ruff and mypy. Integration: 90 tests plus Ruff, including
 all 344 entities enabled together, HA state validation, formatting boundaries,
 raw-value retention, unit metadata and existing signed-power regression tests.
 
@@ -414,3 +414,22 @@ Units below are the pre-release HA units; `—` means no unit, not missing data.
 | `switch.indevolt_key_load_enable` | 7267 | off | — | no |
 | `switch.indevolt_countercurrentcharge` | 7272 | on | — | no |
 | `sensor.indevolt_ac_out_discharge_energy` | 196 | 0 | Wh | no |
+
+## Additional confirmed decoder correction (0.2.6)
+
+Inspection of the raw request revealed address 7545 was read with count 3,
+not 4. The vendor places stray unaddressed OFF/ON rows after the uint32 daily
+energy counter 7547. Those rows had been imported as enum options, causing
+one-register enum decoding and truncating the shared request. The canonical
+catalog now preserves the original stray options as evidence while clearing
+runtime options; generated decoding uses two words, Wh and energy statistics.
+The generator rejects options on incompatible numeric types. Tests verify
+7547 words [3, 4] decode as 196612 Wh and the shared read requests four words.
+Live testing must determine whether this also resolves the device exception.
+
+Raw checks from the second pass: 6010 returned 0x029B = 667 (6.67 V) at
+16:29:55; 6122 returned 0x0298 = 664 (6.64 V) at 16:30:10. Current words
+0xFD6C and 0xFA9C decode to -6.60 A and -13.80 A, respectively. PV status
+frames confirmed code 1 followed by zero alarm words. These confirm that
+voltage/PV discrepancies originate in the device data or documented meanings,
+not a decimal-display rounding error.

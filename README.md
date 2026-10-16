@@ -214,3 +214,7 @@ Forced-full-charge interval uses days (`d`); forced AC charging power uses watts
 Apparent power, reactive power, and durations have their corresponding Home
 Assistant device classes. Enum states retain stable numeric codes and translated
 UI labels. Unknown codes and device-rejected reads are not replaced with zero.
+
+The daily microinverter energy counter (7547) is decoded as a two-register Wh
+counter. Stray OFF/ON continuation rows in the vendor table are excluded from
+its enum metadata; they would otherwise truncate the read and lose the unit.

@@ -98,6 +98,7 @@ async def test_every_register_can_be_exposed_together(hass, unit):
     unit.holding[7534] = 24
     unit.holding[7268] = 30
     unit.holding[7270] = 500
+    unit.holding[7547] = [3, 4]
     entry = MockConfigEntry(
         domain="indevolt_modbus",
         data={"host": "192.0.2.10", "port": 8899, "unit_id": 1},
@@ -129,6 +130,11 @@ async def test_every_register_can_be_exposed_together(hass, unit):
         await entry.runtime_data.async_refresh()
         assert not entry.runtime_data.data.failed
         assert len(entry.runtime_data.data.updated) == len(REGISTERS)
+        energy = hass.states.get(entities[7547].entity_id)
+        assert energy.state == "196612"
+        assert energy.attributes["device_class"] == "energy"
+        assert energy.attributes["state_class"] == "total_increasing"
+        assert energy.attributes["unit_of_measurement"] == "Wh"
         for entity in entities.values():
             state = hass.states.get(entity.entity_id)
             assert state is not None
