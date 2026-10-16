@@ -120,7 +120,10 @@ class IndevoltSensor(IndevoltEntity, SensorEntity):
         else:
             self._attr_native_unit_of_measurement = register.unit
             self._attr_device_class = UNITS.get(register.unit)
-            if register.group == "Real Time Data" and register.unit in UNITS:
+            if register.address == 122:
+                self._attr_device_class = SensorDeviceClass.POWER_FACTOR
+                self._attr_state_class = SensorStateClass.MEASUREMENT
+            elif register.group == "Real Time Data" and register.unit in UNITS:
                 self._attr_state_class = SensorStateClass.MEASUREMENT
             elif register.unit == "Wh" and register.group == "Statistics":
                 self._attr_device_class = SensorDeviceClass.ENERGY

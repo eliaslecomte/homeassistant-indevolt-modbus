@@ -218,3 +218,7 @@ UI labels. Unknown codes and device-rejected reads are not replaced with zero.
 The daily microinverter energy counter (7547) is decoded as a two-register Wh
 counter. Stray OFF/ON continuation rows in the vendor table are excluded from
 its enum metadata; they would otherwise truncate the read and lose the unit.
+
+Inverter power factor is a unitless ratio (for example `0.99`), with HA's
+power-factor device class. The vendor's `Pct` label conflicts with its 0.001
+scale and observed readings; the numerical value and sign are preserved.

@@ -39,19 +39,26 @@ in the descriptions. Versions/time formats are explicitly documented.
   is appropriate; protocol-version support alone does not guarantee every optional
   hardware feature. Do not invent zero energy or suppress exceptions.
 - Main/pack-1 voltages were 6.70/6.65 V using the documented 0.01 multiplier.
-  These look unusual for pack voltage; the definition currently agrees with our
-  decoder. Do not change scale based only on plausibility. Compare with the
-  vendor app/BMS measurement and obtain a model-specific definition.
+  Initially suspicious, but the vendor's [battery-optimizer article](https://blog.indevolt.com/en/indevolt-battery-optimizer-a-technological-breakthrough-for-balcony-solar-power-systems-with-storage/)
+  describes two high-capacity cells in series. Approximately 6.6 V is therefore
+  plausible for this design and agrees with the documented multiplier. No
+  evidence supports changing its scale.
 - Pack currents (-34.5 A main, -9.4 A pack 1) and total battery power (-185 W)
   were read at different times. They cannot establish a power-balance or scale
   correction in this long polling pass.
 - Remaining discharge time was 9999 min while charging. This may be a firmware
   sentinel, but the table defines no sentinel: retained as reported.
-- Packs 2–5 report zero telemetry and firmware. This is consistent with absent
-  packs, but zero alone does not prove absence; no inferred availability rules.
-- Apparent/reactive power and power factor are zero while charging, which the
-  vendor explicitly documents. The unusual `Pct` power-factor unit remains
-  unchanged until nonzero readings clarify the vendor's scale convention.
+- The user confirmed two battery modules and no PV connected. Main plus pack 1
+  have live telemetry; packs 2–5 report zeros as expected for the absent modules.
+  PV power/current are zero; PV voltage around 2.5 V may be idle input sensing.
+  This explains the hardware context but does not define PV status code 1.
+- Apparent power and power factor were zero while charging, as documented.
+  During discharge, power factor was 0.99 Pct, apparent power 174 VA and
+  inverter power -173 W (samples three seconds apart). This supports a
+  dimensionless ratio, not 0.99 percent. Release 0.2.7 removes the incorrect
+  unit and adds HA power-factor measurement metadata, preserving 0.001 scaling.
+  The canonical catalog records the source-unit discrepancy. Reactive power
+  remained zero; that alone is not an error.
 - Enum states are numeric strings by design; HA uses translated UI labels.
   Bitfields remain numeric masks rather than pretending they are enums.
 
@@ -433,3 +440,25 @@ Raw checks from the second pass: 6010 returned 0x029B = 667 (6.67 V) at
 frames confirmed code 1 followed by zero alarm words. These confirm that
 voltage/PV discrepancies originate in the device data or documented meanings,
 not a decimal-display rounding error.
+
+## Live 0.2.6 validation
+
+Installed via HACS and restarted Home Assistant. Runtime diagnostics confirm
+0.2.6 with the same 120 s regular target, 3 s ACOutW target and 1 s spacing.
+The expanded first pass started around 20:40 Europe/Brussels.
+
+The corrected shared energy read now succeeds: both total and daily
+microinverter counters return **0 Wh**, consistent with no PV connected.
+This resolves both unavailable entities seen before the decoder correction.
+EMS is V1.01.12 (raw 10112), BMS V1.00.49, inverter V1.41 and protocol V2.4.
+Sleep start is 00:00; date year/month is 2026-10. Forced charge power is 500 W
+and interval 0 d. Raw-value attributes are present on formatted fields.
+
+## Power-factor follow-up (0.2.7)
+
+The naturally occurring discharge phase provided nonzero power-factor evidence
+that was absent during the initial charging pass. A final presentation-only
+correction keeps 0.99 as a ratio and uses HA's power-factor device class with no
+native unit. No absolute value, sign reversal or multiplication by 100 is added.
+Tests cover zero, 0.99 and -1 ratios, plus the actual HA state metadata.
+Final automated validation: 44 library tests and 90 integration tests.
