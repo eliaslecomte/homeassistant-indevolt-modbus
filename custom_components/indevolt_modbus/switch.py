@@ -7,10 +7,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from indevolt_modbus import Register
+
 from .const import SWITCH_ADDRESSES
 from .coordinator import IndevoltConfigEntry
 from .entity import IndevoltEntity
-from .vendor.indevolt_modbus import Register
 
 PARALLEL_UPDATES = 1
 # Confirmed equivalents of core HTTP controls; see docs/entity-defaults.md.

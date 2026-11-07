@@ -9,11 +9,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from indevolt_modbus import Register
+
 from .const import NUMBER_RANGES, SELECT_ADDRESSES, SWITCH_ADDRESSES
 from .coordinator import IndevoltConfigEntry
 from .entity import IndevoltEntity
 from .formatting import format_register_value
-from .vendor.indevolt_modbus import Register
 
 PARALLEL_UPDATES = 0
 UNITS = {

@@ -7,9 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.translation import async_get_translations
+from indevolt_modbus import REGISTERS
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-
-from custom_components.indevolt_modbus.vendor.indevolt_modbus import REGISTERS
 
 DOMAIN = "indevolt_modbus"
 ROOT = Path(__file__).resolve().parents[1]

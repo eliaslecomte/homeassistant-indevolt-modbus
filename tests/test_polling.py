@@ -4,11 +4,11 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from indevolt_modbus import IndevoltDevice
 from modbus_connection import IllegalDataAddressError, ModbusConnectionError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.indevolt_modbus.coordinator import IndevoltCoordinator
-from custom_components.indevolt_modbus.vendor.indevolt_modbus import IndevoltDevice
 
 
 async def ready(hass, unit, addresses, disabled=False):

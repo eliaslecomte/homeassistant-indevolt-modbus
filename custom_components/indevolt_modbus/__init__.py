@@ -6,10 +6,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from modbus_connection import ModbusTcpParams
 
+from indevolt_modbus import IndevoltDevice
+
 from .const import CONF_UNIT_ID, DOMAIN, MESSAGE_SPACING
 from .coordinator import IndevoltConfigEntry, IndevoltCoordinator
 from .transport import async_get_unit, async_release_unit
-from .vendor.indevolt_modbus import IndevoltDevice
 
 PLATFORMS = [Platform.SENSOR, Platform.NUMBER, Platform.SELECT, Platform.SWITCH]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)

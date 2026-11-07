@@ -1,1 +1,0 @@
-"""Vendored standalone device library."""

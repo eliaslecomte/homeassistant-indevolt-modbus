@@ -15,9 +15,10 @@ from homeassistant.helpers.selector import (
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from modbus_connection import ModbusError, ModbusTcpParams
 
+from indevolt_modbus import IndevoltDevice
+
 from .const import CONF_UNIT_ID, DEFAULT_PORT, DEFAULT_UNIT_ID, DOMAIN
 from .transport import async_get_temporary_unit
-from .vendor.indevolt_modbus import IndevoltDevice
 
 SCHEMA = probatio.Schema(
     {

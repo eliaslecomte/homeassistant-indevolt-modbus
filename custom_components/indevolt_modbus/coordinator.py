@@ -14,6 +14,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from modbus_connection import ModbusError
 from modbus_connection.model import UpdateReport
 
+from indevolt_modbus import IndevoltComponent, IndevoltDevice, Register
+
 from .const import (
     DOMAIN,
     FAST_POLL_INTERVAL,
@@ -23,7 +25,6 @@ from .const import (
     SCAN_INTERVAL,
     SETTINGS_POLL_INTERVAL,
 )
-from .vendor.indevolt_modbus import IndevoltComponent, IndevoltDevice, Register
 
 _LOGGER = logging.getLogger(__name__)
 type IndevoltConfigEntry = ConfigEntry[IndevoltCoordinator]

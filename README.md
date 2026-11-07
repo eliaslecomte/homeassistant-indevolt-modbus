@@ -2,10 +2,9 @@
 
 A local Modbus TCP integration for Indevolt storage devices, prepared for HACS
 community testing. Requires **Home Assistant 2026.10.1 or newer** and HACS 2.0.5.
-The standalone device library is included under
-`custom_components/indevolt_modbus/vendor/indevolt_modbus`; no unpublished device
-package is downloaded. The published `modbus-connection[tmodbus]` backend is
-installed through the manifest.
+The standalone device library
+[`indevolt-modbus==0.1.0`](https://pypi.org/project/indevolt-modbus/0.1.0/)
+and its Modbus backend are installed through the manifest.
 
 ## Installation
 
@@ -149,8 +148,8 @@ it from HACS and restart if you no longer need it.
 This repository follows the
 [integration blueprint](https://github.com/ludeeus/integration_blueprint):
 HACS metadata, devcontainer, setup/develop/lint helpers, issue template, Ruff,
-hassfest and HACS validation workflows. Apache licensing for the vendored
-library is preserved separately from the integration template's MIT license.
+hassfest and HACS validation workflows. The standalone library is distributed
+under Apache-2.0 separately from the integration template's MIT license.
 
 ```sh
 scripts/setup
@@ -160,9 +159,9 @@ scripts/develop
 ```
 
 In the original three-folder workspace, run `python scripts/sync.py` to copy
-core changes and refresh the vendored library, then run Ruff and the tests.
-Do not change the vendored package directly. It is copied without import-path
-rewrites; relative imports keep it isolated from installed device packages.
+core changes, then run Ruff and the tests. The integration imports the published
+library directly; update its pinned version in both the manifest and
+`requirements_common.txt` when adopting a new library release.
 
 Repository metadata is configured for `eliaslecomte/homeassistant-indevolt-modbus`,
 with `@eliaslecomte` as codeowner. Before a GitHub release, run both validation

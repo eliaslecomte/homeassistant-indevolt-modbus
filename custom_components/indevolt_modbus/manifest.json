@@ -13,11 +13,12 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/eliaslecomte/homeassistant-indevolt-modbus/issues",
   "loggers": [
+    "indevolt_modbus",
     "modbus_connection",
     "tmodbus"
   ],
   "requirements": [
-    "modbus-connection[tmodbus]>=4.12.4"
+    "indevolt-modbus==0.1.0"
   ],
   "version": "0.2.9",
   "zeroconf": [

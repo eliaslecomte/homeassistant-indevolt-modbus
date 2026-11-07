@@ -1,1 +1,1 @@
-modbus-connection[tmodbus]>=4.12.4
+indevolt-modbus==0.1.0

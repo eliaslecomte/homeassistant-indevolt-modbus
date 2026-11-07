@@ -5,9 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.const import EntityCategory
 from homeassistant.helpers import entity_registry as er
+from indevolt_modbus import REGISTERS
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-
-from custom_components.indevolt_modbus.vendor.indevolt_modbus import REGISTERS
 
 DOMAIN = "indevolt_modbus"
 PREFIX = "custom_components.indevolt_modbus"

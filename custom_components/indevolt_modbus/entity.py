@@ -5,9 +5,10 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from modbus_connection import ModbusError
 
+from indevolt_modbus import Register
+
 from .const import DOMAIN
 from .coordinator import IndevoltConfigEntry, IndevoltCoordinator
-from .vendor.indevolt_modbus import Register
 
 
 class IndevoltEntity(CoordinatorEntity[IndevoltCoordinator]):

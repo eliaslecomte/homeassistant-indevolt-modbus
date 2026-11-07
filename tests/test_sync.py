@@ -15,13 +15,12 @@ def test_sync_preserves_manifest_version(tmp_path, monkeypatch, existing_version
     sync = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(sync)
     core = tmp_path / "core"
-    library = tmp_path / "library"
     target = tmp_path / "target"
-    for path in (core, target, library / "src/indevolt_modbus"):
+    for path in (core, target):
         path.mkdir(parents=True)
     (core / "manifest.json").write_text(json.dumps({"domain": "indevolt"}))
     (core / "strings.json").write_text("{}")
-    (library / "LICENSE").write_text("Test library license")
+    (core / "sensor.py").write_text("from indevolt_modbus import Register\n")
     previous = {
         "documentation": "https://example.com/docs",
         "issue_tracker": "https://example.com/issues",
@@ -31,12 +30,15 @@ def test_sync_preserves_manifest_version(tmp_path, monkeypatch, existing_version
         previous["version"] = existing_version
     (target / "manifest.json").write_text(json.dumps(previous))
     monkeypatch.setattr(sync, "CORE", core)
-    monkeypatch.setattr(sync, "LIBRARY", library)
     monkeypatch.setattr(sync, "TARGET", target)
     sync.main()
     result = json.loads((target / "manifest.json").read_text())
     assert result["version"] == (existing_version or "0.1.0")
     assert result["domain"] == "indevolt_modbus"
-    assert result["requirements"] == ["modbus-connection[tmodbus]>=4.12.4"]
+    assert result["requirements"] == ["indevolt-modbus==0.1.0"]
     for key in ("documentation", "issue_tracker", "codeowners"):
         assert result[key] == previous[key]
+    assert not (target / "vendor").exists()
+    assert (
+        target / "sensor.py"
+    ).read_text() == "from indevolt_modbus import Register\n"

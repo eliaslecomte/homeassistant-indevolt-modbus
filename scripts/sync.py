@@ -1,4 +1,4 @@
-"""Synchronize the core integration and vendor the standalone library."""
+"""Synchronize the core integration using the published standalone library."""
 
 import json
 import shutil
@@ -6,7 +6,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT.parent / "home-assistant-core/homeassistant/components/indevolt"
-LIBRARY = ROOT.parent / "indevolt-modbus"
 TARGET = ROOT / "custom_components/indevolt_modbus"
 
 
@@ -15,9 +14,7 @@ def main() -> None:
     for source in CORE.iterdir():
         if source.suffix not in {".py", ".json"}:
             continue
-        content = source.read_text().replace(
-            "from indevolt_modbus", "from .vendor.indevolt_modbus"
-        )
+        content = source.read_text()
         if source.name in {"__init__.py", "config_flow.py"}:
             content = content.replace(
                 "from homeassistant.components.modbus import", "from .transport import"
@@ -65,9 +62,9 @@ def main() -> None:
                 domain="indevolt_modbus",
                 name="Indevolt Modbus",
                 version=previous.get("version", "0.1.0"),
-                requirements=["modbus-connection[tmodbus]>=4.12.4"],
+                requirements=["indevolt-modbus==0.1.0"],
                 documentation="https://docs.indevolt.com/docs/hardware/open-data/modbus/",
-                loggers=["modbus_connection", "tmodbus"],
+                loggers=["indevolt_modbus", "modbus_connection", "tmodbus"],
             )
             for key in ("codeowners", "documentation", "issue_tracker"):
                 if previous.get(key):
@@ -81,16 +78,6 @@ def main() -> None:
     translations = TARGET / "translations"
     translations.mkdir(exist_ok=True)
     shutil.copyfile(TARGET / "strings.json", translations / "en.json")
-    vendor = TARGET / "vendor"
-    vendor.mkdir(exist_ok=True)
-    (vendor / "__init__.py").write_text('"""Vendored standalone device library."""\n')
-    shutil.copytree(
-        LIBRARY / "src/indevolt_modbus",
-        vendor / "indevolt_modbus",
-        dirs_exist_ok=True,
-        ignore=shutil.ignore_patterns("__pycache__"),
-    )
-    shutil.copyfile(LIBRARY / "LICENSE", vendor / "LICENSE")
 
 
 if __name__ == "__main__":
