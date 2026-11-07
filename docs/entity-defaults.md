@@ -102,8 +102,9 @@ not read. Entity contexts are register keys, so battery power can run independen
 of SOC. Adjacent selected fields within a component share one request.
 
 Each group has its own deadline, and results are published immediately. Regular
-polling uses a fixed 30 seconds after completion; ACOutW (1284) targets a fixed
-15-second completion cadence when enabled. The shared scheduler prioritizes writes
+telemetry uses 60 seconds after completion; ACOutW (1284) targets a fixed
+10-second completion cadence when enabled. Settings/modes use five minutes and
+Info fields use one hour; all enabled fields receive an initial read. The shared scheduler prioritizes writes
 and their targeted readbacks, then ACOutW, while allowing regular work between
 ACOutW reads. Actual intervals depend on request spacing and device response time.
 See the README for polling lifecycle,

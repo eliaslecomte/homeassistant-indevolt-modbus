@@ -18,6 +18,8 @@ async def async_get_config_entry_diagnostics(
     return {
         "polling": {
             "regular_interval": coordinator.regular_interval,
+            "settings_interval": coordinator.settings_interval,
+            "info_interval": coordinator.info_interval,
             "fast_poll_interval": coordinator.fast_interval,
             "fast_poll_sensor": coordinator.fast_sensor,
             "message_spacing": coordinator.message_spacing,
@@ -32,6 +34,7 @@ async def async_get_config_entry_diagnostics(
                 {
                     "fields": sorted(group.reader.resolved_fields),
                     "fast": group.fast,
+                    "interval": group.interval,
                     "successes": group.successes,
                     "failures": group.errors,
                     "successful_poll_gaps_seconds": list(group.gaps),

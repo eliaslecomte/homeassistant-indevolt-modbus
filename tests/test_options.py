@@ -42,8 +42,8 @@ async def test_upgrade_removes_polling_options(hass, unit, legacy):
         assert entry.data == DATA
         assert not IndevoltConfigFlow.async_supports_options_flow(entry)
         coordinator = entry.runtime_data
-        assert coordinator.regular_interval == 30
-        assert coordinator.fast_interval == 15
+        assert coordinator.regular_interval == 60
+        assert coordinator.fast_interval == 10
         assert coordinator.fast_sensor == "acout_w_1284"
         assert coordinator.device.modbus_unit._message_spacing == 2
         assert await hass.config_entries.async_unload(entry.entry_id)

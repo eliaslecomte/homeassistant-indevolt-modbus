@@ -64,8 +64,10 @@ Polling uses fixed intervals:
 
 | Data | Target |
 | --- | --- |
-| Total AC power (ACOutW, register 1284) | 15-second completion cadence |
-| Other enabled fields | 30 seconds after each register group's completed read |
+| Total AC power (ACOutW, register 1284) | 10-second completion cadence |
+| Other live telemetry, counters, events and device clock | 60 seconds after each read group completes |
+| Settings and operating modes | 5 minutes after each read group completes |
+| Device information (catalog Info fields) | 1 hour after each read group completes |
 | Minimum spacing between requests | 2 seconds |
 
 ACOutW includes inverter and bypass power. Its schedule follows the stable
@@ -74,16 +76,26 @@ Disabled entities are not polled. There are no polling configuration options;
 upgrading removes the previous timing options and applies these fixed intervals.
 Existing entity IDs and enablement choices are preserved.
 
+All enabled fields receive an initial read regardless of tier. Explicit manual
+refreshes include settings and information. Writes immediately read back the
+changed field, without waiting for the next five-minute poll. Changes made through
+the Indevolt app or another client can take up to the next settings poll to appear.
+Information is not assumed immutable: firmware versions, rated capacity and hardware
+capabilities are checked hourly. The Modbus protocol version used to select supported
+registers is detected during setup; discovering new register support after a firmware
+change requires reloading the integration. Writable clock words 1132–1134 remain
+on the 60-second telemetry tier rather than the settings tier.
+
 One worker serializes reads, writes and targeted readbacks. It reserves the next
 ACOutW slot using an adaptive response-time estimate and anchors subsequent slots
-to the original cadence instead of waiting another 15 seconds after each response.
+to the original cadence instead of waiting another 10 seconds after each response.
 Missed slots are skipped without catch-up bursts. Due regular requests get a turn
 between ACOutW reads, and writes remain highest priority. An early manual refresh
 preserves the next ACOutW slot when request spacing permits it.
 
 The intervals are targets: slow responses, retries, writes and a large enabled
-entity set can delay them. In particular, 30 seconds is not a guarantee that all
-regular fields can be read within one 30-second window. The manufacturer recommends
+entity set can delay them. In particular, 60 seconds is not a guarantee that all
+telemetry fields can be read within one 60-second window. The manufacturer recommends
 5-second request spacing and supports a minimum of 1 second; this integration
 retains the 2-second spacing used during hardware profiling.
 
@@ -99,7 +111,8 @@ Values older than the greater of three polling intervals or four times
 (request spacing + 2 seconds) are treated as stale. Diagnostics include field ages
 and the last 100 read durations **including pacing and recovery**, not just wire
 response latency. Default V1.9 entities require 18 reads instead of 56 (V1.7: 17
-instead of 52). The fixed 15/30-second schedule still needs live validation.
+instead of 52). The tiered schedule is checked with simulated request pacing; live results depend
+on the device and enabled workload.
 
 The new core Modbus API is used automatically when present. On 2026.10.1, which
 does not expose that API, this integration owns its connection and closes it on
@@ -183,9 +196,11 @@ The response-time estimate is scheduling feedback, not measured wire latency.
 
 ### Fast polling target and power direction
 
-ACOutW has a fixed 15-second target; all other fields use 30 seconds.
+ACOutW has a fixed 10-second target; telemetry uses 60 seconds, settings use
+300 seconds, and information uses 3600 seconds.
 Diagnostics report `fast_poll_sensor` as `acout_w_1284` and
-`fast_poll_interval` as `15`. These describe the internal schedule, not user
+`fast_poll_interval` as `10`, alongside `settings_interval`, `info_interval`
+and each read group's `interval`. These describe the internal schedule, not user
 options. Historical profiling documents describe earlier configurable targets.
 Existing entity IDs and unique IDs are retained.
 

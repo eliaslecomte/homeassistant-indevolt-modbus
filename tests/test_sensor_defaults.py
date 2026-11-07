@@ -73,7 +73,7 @@ async def test_new_entity_defaults_and_polling(hass, unit, version):
         assert coordinator.data.updated == components
         # Only enabled fields are read; adjacent selected fields share a request.
         assert len(unit.read_events) == (18 if version == 17 else 19)
-        assert coordinator.regular_interval == 30
+        assert coordinator.regular_interval == 60
         assert await hass.config_entries.async_unload(entry.entry_id)
 
 

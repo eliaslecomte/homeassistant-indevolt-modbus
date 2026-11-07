@@ -18,8 +18,10 @@ from .const import (
     DOMAIN,
     FAST_POLL_INTERVAL,
     FAST_POLL_SENSOR,
+    INFO_POLL_INTERVAL,
     MESSAGE_SPACING,
     SCAN_INTERVAL,
+    SETTINGS_POLL_INTERVAL,
 )
 from .vendor.indevolt_modbus import IndevoltComponent, IndevoltDevice, Register
 
@@ -65,6 +67,8 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         self.regular_interval = SCAN_INTERVAL
         self.fast_sensor = FAST_POLL_SENSOR
         self.fast_interval = FAST_POLL_INTERVAL
+        self.settings_interval = SETTINGS_POLL_INTERVAL
+        self.info_interval = INFO_POLL_INTERVAL
         self.message_spacing = MESSAGE_SPACING
         self.values: dict[str, Any] = {}
         self.last_success: dict[str, float] = {}
@@ -89,15 +93,25 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
 
     def is_fresh(self, register: Register) -> bool:
         """Reject cached values that have missed several polling opportunities."""
-        interval = (
-            self.fast_interval
-            if register.key == self.fast_sensor and self.fast_interval
-            else self.regular_interval
-        )
+        interval = self.poll_interval(register)
         budget = max(3 * interval, 4 * (self.message_spacing + 2))
         return (
             monotonic() - self.last_success.get(register.key, float("-inf")) <= budget
         )
+
+    def poll_interval(self, register: Register) -> int:
+        if register.key == self.fast_sensor:
+            return self.fast_interval
+        if register.group == "Info":
+            return self.info_interval
+        # The writable device clock is telemetry, not a slowly changing setting.
+        if register.group in {"Settings", "Mode"} and register.address not in {
+            1132,
+            1133,
+            1134,
+        }:
+            return self.settings_interval
+        return self.regular_interval
 
     def async_start(self) -> None:
         """Start after enabled entities have registered their field contexts."""
@@ -150,21 +164,26 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         if contexts == self._contexts:
             return
         self._contexts = contexts
-        fast = {
-            r.key
-            for r in self.device.registers
-            if r.key == self.fast_sensor and r.key in contexts and self.fast_interval
+        tiers: dict[int, set[str]] = {
+            interval: set()
+            for interval in (
+                self.fast_interval,
+                self.regular_interval,
+                self.settings_interval,
+                self.info_interval,
+            )
         }
+        for register in self.device.registers:
+            if register.key in contexts:
+                tiers[self.poll_interval(register)].add(register.key)
         previous = {tuple(g.reader.resolved_fields): g for g in self._groups}
         groups = []
-        for keys, interval, is_fast in (
-            (fast, self.fast_interval, True),
-            (contexts - fast, self.regular_interval, False),
-        ):
+        for interval, keys in tiers.items():
             for reader in self.device.read_groups(keys):
                 identity = tuple(reader.resolved_fields)
                 groups.append(
-                    previous.get(identity) or ReadGroup(reader, interval, is_fast)
+                    previous.get(identity)
+                    or ReadGroup(reader, interval, interval == self.fast_interval)
                 )
         self._groups = groups
 
@@ -193,7 +212,7 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         (reader,) = self.device.read_groups([register.key])
         done = self.hass.loop.create_future()
         self._writes.append(
-            Job(ReadGroup(reader, self.regular_interval), done, register, value)
+            Job(ReadGroup(reader, self.poll_interval(register)), done, register, value)
         )
         self._wake.set()
         await done
