@@ -3,25 +3,23 @@
 import asyncio
 import logging
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from time import monotonic
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_SCAN_INTERVAL
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from modbus_connection import ModbusError
 from modbus_connection.model import UpdateReport
 
 from .const import (
-    CONF_FAST_POLL_INTERVAL,
-    CONF_MESSAGE_SPACING,
-    DEFAULT_FAST_POLL_INTERVAL,
     DOMAIN,
+    FAST_POLL_INTERVAL,
+    FAST_POLL_SENSOR,
     MESSAGE_SPACING,
     SCAN_INTERVAL,
-    fast_poll_sensor,
 )
 from .vendor.indevolt_modbus import IndevoltComponent, IndevoltDevice, Register
 
@@ -64,17 +62,10 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
     ) -> None:
         super().__init__(hass, _LOGGER, config_entry=entry, name=DOMAIN)
         self.device = device
-        self.regular_interval = entry.options.get(CONF_SCAN_INTERVAL, SCAN_INTERVAL)
-        self.fast_sensor = fast_poll_sensor(entry.options)
-        self.fast_interval = (
-            (
-                entry.options.get(CONF_FAST_POLL_INTERVAL, 0)
-                or DEFAULT_FAST_POLL_INTERVAL
-            )
-            if self.fast_sensor
-            else 0
-        )
-        self.message_spacing = entry.options.get(CONF_MESSAGE_SPACING, MESSAGE_SPACING)
+        self.regular_interval = SCAN_INTERVAL
+        self.fast_sensor = FAST_POLL_SENSOR
+        self.fast_interval = FAST_POLL_INTERVAL
+        self.message_spacing = MESSAGE_SPACING
         self.values: dict[str, Any] = {}
         self.last_success: dict[str, float] = {}
         self.read_durations: deque[float] = deque(maxlen=100)
@@ -113,9 +104,23 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         subscribe = getattr(self.device.modbus_unit, "on_connection_lost", None)
         if subscribe is not None:
             self._unsubscribe_disconnect = subscribe(self._connection_lost)
-        self._worker = self.hass.async_create_background_task(
-            self._run(), f"{DOMAIN} polling"
+        self._worker = self.config_entry.async_create_background_task(
+            self.hass, self._run(), f"{DOMAIN} polling", eager_start=False
         )
+
+    @callback
+    def async_add_listener(
+        self, update_callback: CALLBACK_TYPE, context: Any = None
+    ) -> Callable[[], None]:
+        unsubscribe = super().async_add_listener(update_callback, context)
+        self._wake.set()
+
+        @callback
+        def remove_listener() -> None:
+            unsubscribe()
+            self._wake.set()
+
+        return remove_listener
 
     def _connection_lost(self) -> None:
         self.disconnect_count += 1
@@ -169,6 +174,8 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         except (ModbusError, ValueError) as err:
             raise UpdateFailed(str(err)) from err
         if self._worker is not None:
+            if self._shutdown_requested or self._worker.done():
+                raise UpdateFailed("Device polling has stopped")
             self._sync_groups()
             futures = []
             for group in self._groups:
@@ -191,7 +198,9 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
         self._wake.set()
         await done
 
-    async def _read(self, group: ReadGroup) -> ModbusError | None:
+    async def _read(
+        self, group: ReadGroup, *, scheduled: bool = True
+    ) -> ModbusError | None:
         keys = set(group.reader.resolved_fields)
         start = monotonic()
         expected_pacing = self._pacing_remaining(start)
@@ -238,6 +247,8 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
                 target = (
                     deadline + group.interval if deadline else finished + group.interval
                 )
+                if not scheduled and deadline > finished:
+                    target = deadline
                 earliest = finished + self.message_spacing + self._response_estimate
                 if target <= earliest:
                     target += (
@@ -263,8 +274,14 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
                 self._sync_groups()
                 # At least one regular request gets a turn between fast reads.
                 now = monotonic()
-                due = [g for g in self._groups if not g.fast and g.due <= now]
-                fast = next((g for g in self._groups if g.fast), None)
+                automatic = (
+                    not self.config_entry.pref_disable_polling
+                    and not self.hass.is_stopping
+                )
+                due = [
+                    g for g in self._groups if automatic and not g.fast and g.due <= now
+                ]
+                fast = next((g for g in self._groups if automatic and g.fast), None)
                 fast_ready = fast is not None and self._fast_start(fast) <= now
                 regular = min(
                     (g for g in due if not g.fast), key=lambda g: g.due, default=None
@@ -296,13 +313,15 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
                 else:
                     # Overdue regular groups may be intentionally held for fast.
                     deadlines = [
-                        g.due for g in self._groups if not g.fast and g.due > now
+                        g.due
+                        for g in self._groups
+                        if automatic and not g.fast and g.due > now
                     ]
                     if fast is not None:
                         deadlines.append(self._fast_start(fast))
-                    delay = max(0.001, min(deadlines, default=now + 1) - now)
+                    delay = max(0.001, min(deadlines) - now) if deadlines else None
                     try:
-                        async with asyncio.timeout(min(delay, 1)):
+                        async with asyncio.timeout(delay):
                             await self._wake.wait()
                     except TimeoutError:
                         pass
@@ -317,7 +336,7 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
                             await self.device.async_write(active.register, active.value)
                         finally:
                             self._last_operation_finished = monotonic()
-                    error = await self._read(active.group)
+                    error = await self._read(active.group, scheduled=False)
                     if error is not None and active.register is not None:
                         raise error
                 except (ModbusError, ValueError, AttributeError) as err:
@@ -329,6 +348,9 @@ class IndevoltCoordinator(DataUpdateCoordinator[UpdateReport]):
                 self._last_fast = active.group.fast
                 active = None
         finally:
+            if self._unsubscribe_disconnect is not None:
+                self._unsubscribe_disconnect()
+                self._unsubscribe_disconnect = None
             for job in [*self._writes, *self._reads, *([active] if active else [])]:
                 if not job.done.done():
                     job.done.cancel()

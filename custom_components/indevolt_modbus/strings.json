@@ -1439,26 +1439,5 @@
         "name": "CounterCurrentCharge"
       }
     }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Polling settings",
-        "description": "Choose one enabled sensor for fast polling, or Disabled to use regular polling for all sensors. ACOutW includes inverter and bypass power and is suggested for energy accounting; Inverter AC power is useful for control feedback. Fast polling targets 3 seconds by default; advanced options can adjust it. All requests share one connection, so response times, writes and regular reads can delay updates. Request spacing defaults to 2 seconds; the manufacturer recommends 5 seconds. Saving reloads the integration.",
-        "data": {
-          "scan_interval": "Regular polling interval",
-          "message_spacing": "Minimum spacing between requests",
-          "fast_poll_sensor": "Fast-polled sensor"
-        },
-        "sections": {
-          "advanced_polling": {
-            "name": "Advanced polling",
-            "data": {
-              "fast_poll_interval": "Fast polling interval"
-            }
-          }
-        }
-      }
-    }
   }
 }

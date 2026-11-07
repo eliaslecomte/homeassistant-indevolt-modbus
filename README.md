@@ -60,50 +60,46 @@ in their entity settings. Only enabled fields are polled; adjacent selected fiel
 within a subsystem share a request without reading undocumented gaps. Each result
 is published immediately instead of waiting for a full cycle.
 
-Under **Settings → Devices & services → Indevolt Modbus → Configure**:
+Polling uses fixed intervals:
 
-| Setting | Default | Range | Meaning |
-| --- | --- | --- | --- |
-| Regular polling interval | 30 s | 5–3600 s | Wait after each regular register group's completed read |
-| Fast-polled sensor | ACOutW for new setups | Enabled sensors on this device, or Disabled | Select one sensor for fast polling; Disabled puts everything on regular polling |
-| Fast polling interval (advanced) | 3 s | 1–3600 s | Target completion cadence for the selected sensor |
-| Minimum spacing between requests | 2 s | 1–60 s | Shared pacing for reads and writes |
+| Data | Target |
+| --- | --- |
+| Total AC power (ACOutW, register 1284) | 15-second completion cadence |
+| Other enabled fields | 30 seconds after each register group's completed read |
+| Minimum spacing between requests | 2 seconds |
 
-Fast polling uses the selected existing sensor; it does not create a duplicate.
-The dropdown lists enabled sensors belonging to this device. ACOutW (1284), which
-includes inverter and bypass power, is the default for new setups and is enabled
-by default for newly created entities. Inverter AC power (174) is useful for
-control feedback. Choose **Disabled** (stored as an empty selection) to turn fast
-polling off. Enable a disabled sensor in the entity list before selecting it.
+ACOutW includes inverter and bypass power. Its schedule follows the stable
+register key, so renaming `sensor.indevolt_acoutw` does not affect polling.
+Disabled entities are not polled. There are no polling configuration options;
+upgrading removes the previous timing options and applies these fixed intervals.
+Existing entity IDs and enablement choices are preserved.
 
-Existing installations retain their previous enabled/disabled state and interval:
-legacy enabled fast polling selects Inverter AC power. Existing entity enablement
-choices are preserved. A saved selection that becomes disabled stays visible but
-is not polled until re-enabled. Entity renames are safe because the selection is
-stored as a stable register key. Other sensors use regular polling.
+One worker serializes reads, writes and targeted readbacks. It reserves the next
+ACOutW slot using an adaptive response-time estimate and anchors subsequent slots
+to the original cadence instead of waiting another 15 seconds after each response.
+Missed slots are skipped without catch-up bursts. Due regular requests get a turn
+between ACOutW reads, and writes remain highest priority. An early manual refresh
+preserves the next ACOutW slot when request spacing permits it.
 
-Expand **Advanced polling** to adjust the fast interval. Selecting
-a sensor uses three seconds unless a positive interval was previously saved.
-Saving reloads the integration; regular interval and request spacing are preserved.
+The intervals are targets: slow responses, retries, writes and a large enabled
+entity set can delay them. In particular, 30 seconds is not a guarantee that all
+regular fields can be read within one 30-second window. The manufacturer recommends
+5-second request spacing and supports a minimum of 1 second; this integration
+retains the 2-second spacing used during hardware profiling.
 
-All intervals are best-effort targets. One worker serializes operations, prioritizes
-writes plus their targeted readbacks, and interleaves fast reads with regular work.
-The scheduler reserves the next selected sensor slot using an adaptive response-time estimate
-and skips missed slots without catch-up bursts. At least one due regular request
-gets a turn between fast reads. Writes remain highest priority. Response time,
-pacing, connection recovery, and writes can extend the observed interval. A 2-second
-fast target with 5-second pacing cannot produce 2-second updates. The manufacturer
-recommends at least 5 seconds between requests and supports a minimum of 1 second;
-The 2-second default is an experiment to stay below the approximately 5-second
-idle connection closures observed during profiling; hardware behavior may vary. Changing a setting no longer requests a
-full telemetry refresh. Writes are never automatically replayed.
+Home Assistant's **Enable polling for updates** system option controls automatic
+reads. When it is disabled, explicit `homeassistant.update_entity` refreshes and
+control writes with their readbacks still work. Removing the last enabled entity
+listener pauses automatic reads. The worker is tied to the config entry and is
+cancelled on unload or Home Assistant shutdown. Control writes never trigger a
+full telemetry refresh and are never automatically replayed.
 
 Failures affect only the fields in that request and are retried with backoff.
 Values older than the greater of three polling intervals or four times
 (request spacing + 2 seconds) are treated as stale. Diagnostics include field ages
 and the last 100 read durations **including pacing and recovery**, not just wire
 response latency. Default V1.9 entities require 18 reads instead of 56 (V1.7: 17
-instead of 52). The priority scheduler and faster pacing still need live validation.
+instead of 52). The fixed 15/30-second schedule still needs live validation.
 
 The new core Modbus API is used automatically when present. On 2026.10.1, which
 does not expose that API, this integration owns its connection and closes it on
@@ -181,19 +177,16 @@ interval. A disconnected holding-register read is retried once after waiting
 for the pacing interval, allowing the backend to reconnect immediately before
 sending. Writes are never replayed automatically.
 
-With 2-second spacing, a 5-second inverter AC power target leaves limited capacity for
-regular telemetry. A 90–120-second regular interval is a reasonable starting
-point for the current enabled workload; the default remains 30 seconds.
 Diagnostics expose per-group successful-poll gaps, fast completion lateness,
 explicit-job queue waits, failure counts and connection-loss counts since start.
 The response-time estimate is scheduling feedback, not measured wire latency.
 
 ### Fast polling target and power direction
 
-Fast polling and freshness checks follow the sensor selected in options.
-Diagnostics report `fast_poll_sensor` (stable register key, empty when disabled)
-and `fast_poll_interval` (effective interval, zero when disabled). These replace
-`fast_ac_power_interval`; historical profiling documents describe earlier targets.
+ACOutW has a fixed 15-second target; all other fields use 30 seconds.
+Diagnostics report `fast_poll_sensor` as `acout_w_1284` and
+`fast_poll_interval` as `15`. These describe the internal schedule, not user
+options. Historical profiling documents describe earlier configurable targets.
 Existing entity IDs and unique IDs are retained.
 
 Register 174 is positive for AC charging/input and negative for discharging/output.

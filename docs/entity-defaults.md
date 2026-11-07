@@ -102,10 +102,11 @@ not read. Entity contexts are register keys, so battery power can run independen
 of SOC. Adjacent selected fields within a component share one request.
 
 Each group has its own deadline, and results are published immediately. Regular
-polling defaults to 30 seconds after completion; fast battery polling is opt-in.
-The shared scheduler prioritizes writes and their targeted readbacks, then fast
-battery telemetry, while allowing regular work between fast reads. Actual intervals
-depend on request spacing and device response time. See the README for settings,
+polling uses a fixed 30 seconds after completion; ACOutW (1284) targets a fixed
+15-second completion cadence when enabled. The shared scheduler prioritizes writes
+and their targeted readbacks, then ACOutW, while allowing regular work between
+ACOutW reads. Actual intervals depend on request spacing and device response time.
+See the README for polling lifecycle,
 freshness budgets, and diagnostics. Diagnostics themselves add no polling.
 
 Tests verify default control sets, optional controls staying disabled, diagnostic

@@ -1,11 +1,12 @@
 """Integrate Indevolt storage devices using the shared Modbus connection."""
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from modbus_connection import ModbusTcpParams
 
-from .const import CONF_MESSAGE_SPACING, CONF_UNIT_ID, DOMAIN, MESSAGE_SPACING
+from .const import CONF_UNIT_ID, DOMAIN, MESSAGE_SPACING
 from .coordinator import IndevoltConfigEntry, IndevoltCoordinator
 from .transport import async_get_unit, async_release_unit
 from .vendor.indevolt_modbus import IndevoltDevice
@@ -27,7 +28,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: IndevoltConfigEntry) -> 
         entry,
         IndevoltDevice(
             unit,
-            message_spacing=entry.options.get(CONF_MESSAGE_SPACING, MESSAGE_SPACING),
+            message_spacing=MESSAGE_SPACING,
         ),
     )
     try:
@@ -36,6 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: IndevoltConfigEntry) -> 
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         coordinator.async_start()
     except BaseException:
+        await coordinator.async_shutdown()
         await async_release_unit(hass, entry)
         raise
     return True
@@ -47,4 +49,27 @@ async def async_unload_entry(hass: HomeAssistant, entry: IndevoltConfigEntry) ->
         return False
     await entry.runtime_data.async_shutdown()
     await async_release_unit(hass, entry)
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Discard obsolete polling options when upgrading existing entries."""
+    if entry.version > 1:
+        return False
+    if entry.minor_version < 2:
+        obsolete = {
+            "scan_interval",
+            "fast_poll_sensor",
+            "fast_poll_interval",
+            "message_spacing",
+        }
+        hass.config_entries.async_update_entry(
+            entry,
+            options={
+                key: value
+                for key, value in entry.options.items()
+                if key not in obsolete
+            },
+            minor_version=2,
+        )
     return True

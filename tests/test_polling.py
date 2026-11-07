@@ -1,7 +1,7 @@
 """Exercise scheduling with real decoding and a controlled clock/transport."""
 
 import asyncio
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from modbus_connection import IllegalDataAddressError, ModbusConnectionError
@@ -11,8 +11,10 @@ from custom_components.indevolt_modbus.coordinator import IndevoltCoordinator
 from custom_components.indevolt_modbus.vendor.indevolt_modbus import IndevoltDevice
 
 
-async def ready(hass, unit, addresses, **options):
-    entry = MockConfigEntry(domain="indevolt_modbus", data={}, options=options)
+async def ready(hass, unit, addresses, disabled=False):
+    entry = MockConfigEntry(
+        domain="indevolt_modbus", data={}, pref_disable_polling=disabled
+    )
     entry.add_to_hass(hass)
     coordinator = IndevoltCoordinator(hass, entry, IndevoltDevice(unit))
     entry.runtime_data = coordinator
@@ -37,30 +39,28 @@ async def test_fast_updates_publish_without_reading_soc(hass, unit, monkeypatch)
     monkeypatch.setattr(
         "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
     )
-    coordinator, registers = await ready(
-        hass, unit, [174, 7599], fast_poll_interval=2, message_spacing=1
-    )
+    coordinator, registers = await ready(hass, unit, [1284, 7599])
     coordinator.async_start()
     try:
         await until(lambda: len(unit.read_events) == 2)
-        assert [r.address for r in unit.read_events] == [174, 7599]
-        unit.holding[174] = 123
-        clock[0] += 2
+        assert [r.address for r in unit.read_events] == [1284, 7599]
+        unit.holding[1284] = 123
+        clock[0] += 15
         coordinator._wake.set()
         await until(lambda: len(unit.read_events) == 3)
-        assert unit.read_events[-1].address == 174
-        assert coordinator.value(registers[174]) == 123
+        assert unit.read_events[-1].address == 1284
+        assert coordinator.value(registers[1284]) == 123
         assert coordinator.value(registers[7599]) == 76.5
-        # A failed fast read affects only battery power; subsequent success recovers.
-        unit.fail_read(174, IllegalDataAddressError())
-        clock[0] += 2
+        # A failed AC read leaves SOC available.
+        unit.fail_read(1284, IllegalDataAddressError())
+        clock[0] += 15
         coordinator._wake.set()
-        await until(lambda: registers[174].key in coordinator.data.failed)
+        await until(lambda: registers[1284].key in coordinator.data.failed)
         assert registers[7599].key in coordinator.data.updated
-        unit.fail_read(174, None)
+        unit.fail_read(1284, None)
         clock[0] += 60
         coordinator._wake.set()
-        await until(lambda: registers[174].key in coordinator.data.updated)
+        await until(lambda: registers[1284].key in coordinator.data.updated)
     finally:
         await coordinator.async_shutdown()
 
@@ -70,28 +70,26 @@ async def test_write_priority_readback_and_regular_fairness(hass, unit, monkeypa
     monkeypatch.setattr(
         "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
     )
-    coordinator, registers = await ready(
-        hass, unit, [174, 7599, 2250], fast_poll_interval=2, message_spacing=1
-    )
+    coordinator, registers = await ready(hass, unit, [1284, 7599, 2250])
     entered = asyncio.Event()
     release = asyncio.Event()
     original = coordinator._read
     seen = []
 
-    async def read(group):
+    async def read(group, **kwargs):
         addresses = [f.address for f in group.reader.resolved_fields.values()]
         seen.append(addresses)
         if len(seen) == 2:
             entered.set()
             await release.wait()
-        return await original(group)
+        return await original(group, **kwargs)
 
     with patch.object(coordinator, "_read", side_effect=read):
         coordinator.async_start()
         try:
             await entered.wait()
-            assert seen[0] == [174]
-            clock[0] += 3
+            assert seen[0] == [1284]
+            clock[0] += 16
             command = asyncio.create_task(coordinator.async_write(registers[1142], 42))
             await asyncio.sleep(0)
             release.set()
@@ -100,8 +98,8 @@ async def test_write_priority_readback_and_regular_fairness(hass, unit, monkeypa
             # Only the current regular request precedes the command. Its readback
             # is followed by fast telemetry and then another regular request.
             assert seen[2] == [1142]
-            assert seen[3] == [174]
-            assert seen[4] != [174]
+            assert seen[3] == [1284]
+            assert seen[4] != [1284]
             assert unit.holding[1142] == 42
             assert coordinator.value(registers[1142]) == 42
         finally:
@@ -126,10 +124,10 @@ async def test_failed_write_is_not_replayed(hass, unit):
 
 
 async def test_shutdown_cancels_pending_commands(hass, unit):
-    coordinator, registers = await ready(hass, unit, [174])
+    coordinator, registers = await ready(hass, unit, [1284])
     entered = asyncio.Event()
 
-    async def blocked(group):
+    async def blocked(group, **kwargs):
         entered.set()
         await asyncio.Event().wait()
 
@@ -149,21 +147,19 @@ async def test_stale_fast_value_and_disabled_entity(hass, unit, monkeypatch):
     monkeypatch.setattr(
         "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
     )
-    coordinator, registers = await ready(
-        hass, unit, [7599], fast_poll_interval=2, message_spacing=1
-    )
+    coordinator, registers = await ready(hass, unit, [7599])
     coordinator.async_start()
     try:
         await until(lambda: len(unit.read_events) == 1)
         assert unit.read_events[0].address == 7599
-        # Configuring fast polling alone does not enable a disabled battery entity.
+        # Disabled AC power has no polling group.
         assert not any(group.fast for group in coordinator._groups)
-        assert not coordinator.is_fresh(registers[174])
-        unsubscribe = coordinator.async_add_listener(lambda: None, registers[174].key)
+        assert not coordinator.is_fresh(registers[1284])
+        unsubscribe = coordinator.async_add_listener(lambda: None, registers[1284].key)
         coordinator._wake.set()
-        await until(lambda: coordinator.is_fresh(registers[174]))
-        clock[0] += 13
-        assert not coordinator.is_fresh(registers[174])
+        await until(lambda: coordinator.is_fresh(registers[1284]))
+        clock[0] += 46
+        assert not coordinator.is_fresh(registers[1284])
         assert coordinator.is_fresh(registers[7599])
         unsubscribe()
         coordinator._sync_groups()
@@ -182,10 +178,7 @@ async def test_fast_cadence_reserves_slot_and_records_disconnects(
     coordinator, _ = await ready(
         hass,
         unit,
-        [174, 7599, 2250, 1142],
-        fast_poll_interval=5,
-        scan_interval=120,
-        message_spacing=2,
+        [1284, 7599, 2250, 1142],
     )
     original = coordinator.device.modbus_unit.read_holding_registers
     last_finish = [clock[0]]
@@ -200,15 +193,15 @@ async def test_fast_cadence_reserves_slot_and_records_disconnects(
     ):
         coordinator.async_start()
         try:
-            for _ in range(400):
+            for _ in range(1800):
                 await asyncio.sleep(0)
                 clock[0] += 0.1
                 coordinator._wake.set()
-                if len(unit.read_events) >= 10:
+                if len(unit.read_events) >= 16:
                     break
             fast = next(g for g in coordinator._groups if g.fast)
             assert fast.successes >= 5
-            assert all(4.5 <= gap <= 5.5 for gap in fast.gaps)
+            assert all(14.5 <= gap <= 15.5 for gap in fast.gaps)
             assert all(g.successes >= 1 for g in coordinator._groups)
             unit._conn.simulate_connection_lost()
             assert coordinator.disconnect_count == 1
@@ -224,92 +217,174 @@ async def test_slow_read_skips_missed_slots_and_failure_backs_off(
     monkeypatch.setattr(
         "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
     )
-    coordinator, _ = await ready(hass, unit, [174], fast_poll_interval=5)
+    coordinator, _ = await ready(hass, unit, [1284])
     coordinator._sync_groups()
     group = coordinator._groups[0]
-    group.due = 105
+    group.due = 115
 
     async def slow_update(**kwargs):
-        clock[0] = 117
+        clock[0] = 147
 
     with patch.object(group.reader, "async_update", side_effect=slow_update):
         await coordinator._read(group)
-    assert group.due == 120
-    assert list(group.lateness) == [12]
+    assert group.due == 160
+    assert list(group.lateness) == [32]
     with patch.object(
         group.reader, "async_update", side_effect=IllegalDataAddressError()
     ):
         await coordinator._read(group)
     assert group.errors == 1
-    assert group.due == 122
-    assert coordinator._fast_start(group) == 122
+    assert group.due == 162
+    assert coordinator._fast_start(group) == 162
     await coordinator.async_shutdown()
 
 
-async def test_ac_fast_target_leaves_battery_regular(hass, unit, monkeypatch):
-    clock = [100.0]
-    monkeypatch.setattr(
-        "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
-    )
-    coordinator, registers = await ready(
-        hass,
-        unit,
-        [174, 6564],
-        fast_poll_interval=3,
-        scan_interval=120,
-        message_spacing=1,
-    )
-    coordinator._sync_groups()
-    fast = next(g for g in coordinator._groups if g.fast)
-    regular = next(g for g in coordinator._groups if not g.fast)
-    assert set(fast.reader.resolved_fields) == {registers[174].key}
-    assert set(regular.reader.resolved_fields) == {registers[6564].key}
-    assert fast.interval == 3
-    assert regular.interval == 120
-    coordinator.last_success = dict.fromkeys(
-        [registers[174].key, registers[6564].key], clock[0]
-    )
-    clock[0] += 13
-    assert not coordinator.is_fresh(registers[174])
-    assert coordinator.is_fresh(registers[6564])
-    await coordinator.async_shutdown()
+async def test_polling_disabled_allows_only_explicit_refresh_and_writes(hass, unit):
+    coordinator, registers = await ready(hass, unit, [1284, 7599], disabled=True)
+    coordinator.async_start()
+    try:
+        await hass.async_block_till_done()
+        assert not unit.read_events
+        await coordinator.async_refresh()
+        assert {event.address for event in unit.read_events} == {1284, 7599}
+        unit.read_events.clear()
+        await coordinator.async_write(registers[1142], 42)
+        assert [event.address for event in unit.read_events] == [1142]
+        assert unit.holding[1142] == 42
+        unit.read_events.clear()
+        await hass.async_block_till_done()
+        assert not unit.read_events
+    finally:
+        await coordinator.async_shutdown()
 
 
-@pytest.mark.parametrize("target", ["acout_w_1284", "battery_power_6564", ""])
-async def test_selected_fast_sensor_controls_schedule_and_freshness(
-    hass, unit, monkeypatch, target
+async def test_removing_last_listener_pauses_and_adding_resumes(
+    hass, unit, monkeypatch
 ):
     clock = [100.0]
     monkeypatch.setattr(
         "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
     )
-    coordinator, registers = await ready(
-        hass,
-        unit,
-        [1284, 174, 6564],
-        fast_poll_sensor=target,
-        scan_interval=120,
-        message_spacing=1,
+    coordinator, registers = await ready(hass, unit, [])
+    coordinator.async_start()
+    unsubscribe = coordinator.async_add_listener(lambda: None, registers[1284].key)
+    try:
+        await until(lambda: len(unit.read_events) == 1)
+        unsubscribe()
+        await hass.async_block_till_done()
+        assert coordinator._groups == []
+        unit.read_events.clear()
+        clock[0] += 120
+        coordinator._wake.set()
+        await hass.async_block_till_done()
+        assert not unit.read_events
+        unsubscribe = coordinator.async_add_listener(lambda: None, registers[1284].key)
+        await until(lambda: len(unit.read_events) == 1)
+        assert unit.read_events[0].address == 1284
+    finally:
+        unsubscribe()
+        await coordinator.async_shutdown()
+
+
+async def test_renamed_ac_entity_keeps_fixed_cadence(hass, unit):
+
+    from homeassistant.helpers import entity_registry as er
+
+    entry = MockConfigEntry(
+        domain="indevolt_modbus",
+        data={"host": "192.0.2.10", "port": 8899, "unit_id": 1},
     )
-    coordinator._sync_groups()
-    fast = [g for g in coordinator._groups if g.fast]
-    assert [key for g in fast for key in g.reader.resolved_fields] == (
-        [target] if target else []
-    )
-    assert coordinator.fast_interval == (3 if target else 0)
-    for register in registers.values():
-        coordinator.last_success[register.key] = clock[0]
-    clock[0] += 13
-    for address in (1284, 174, 6564):
-        assert coordinator.is_fresh(registers[address]) == (
-            registers[address].key != target
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.indevolt_modbus.async_get_unit", AsyncMock(return_value=unit)
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        registry = er.async_get(hass)
+        entity_id = registry.async_get_entity_id(
+            "sensor", "indevolt_modbus", f"{entry.entry_id}_acout_w_1284"
         )
+        registry.async_update_entity(entity_id, new_entity_id="sensor.renamed_ac")
+        await hass.async_block_till_done()
+        coordinator = entry.runtime_data
+        coordinator._sync_groups()
+        fast = next(group for group in coordinator._groups if group.fast)
+        assert list(fast.reader.resolved_fields) == ["acout_w_1284"]
+        assert fast.interval == 15
+        assert all(
+            group.interval == 30 for group in coordinator._groups if not group.fast
+        )
+        assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_explicit_disabled_overrides_saved_interval(hass, unit):
-    coordinator, _ = await ready(
-        hass, unit, [1284, 174], fast_poll_sensor="", fast_poll_interval=3
+async def test_manual_refresh_does_not_postpone_next_ac_slot(hass, unit, monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(
+        "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
     )
-    coordinator._sync_groups()
-    assert coordinator.fast_interval == 0
-    assert not any(g.fast for g in coordinator._groups)
+    coordinator, _ = await ready(hass, unit, [1284])
+    coordinator.async_start()
+    try:
+        await until(lambda: len(unit.read_events) == 1)
+        group = coordinator._groups[0]
+        assert group.due == 115
+        clock[0] = 110
+        await coordinator.async_refresh()
+        assert group.due == 115
+        assert len(unit.read_events) == 2
+        clock[0] = 115
+        coordinator._wake.set()
+        await until(lambda: len(unit.read_events) == 3)
+        assert group.due == 130
+    finally:
+        await coordinator.async_shutdown()
+
+
+async def test_ha_shutdown_cancels_worker_and_queued_operations(hass, unit):
+    coordinator, registers = await ready(hass, unit, [1284])
+    entered = asyncio.Event()
+
+    async def blocked(group, **kwargs):
+        entered.set()
+        await asyncio.Event().wait()
+
+    with patch.object(coordinator, "_read", side_effect=blocked):
+        coordinator.async_start()
+        worker = coordinator._worker
+        await entered.wait()
+        command = asyncio.create_task(coordinator.async_write(registers[1142], 42))
+        refresh = asyncio.create_task(coordinator.async_refresh())
+        await until(lambda: bool(coordinator._writes and coordinator._reads))
+        await hass.async_stop()
+        with pytest.raises(asyncio.CancelledError):
+            await command
+        await refresh
+        assert refresh.done()
+        assert not coordinator._reads
+        assert worker.cancelled()
+        assert coordinator._unsubscribe_disconnect is None
+        assert not unit.read_events
+
+
+async def test_regular_field_waits_thirty_seconds_after_completion(
+    hass, unit, monkeypatch
+):
+    clock = [100.0]
+    monkeypatch.setattr(
+        "custom_components.indevolt_modbus.coordinator.monotonic", lambda: clock[0]
+    )
+    coordinator, _ = await ready(hass, unit, [7599])
+    coordinator.async_start()
+    try:
+        await until(lambda: len(unit.read_events) == 1)
+        clock[0] = 115
+        coordinator._wake.set()
+        await hass.async_block_till_done()
+        assert len(unit.read_events) == 1
+        clock[0] = 130
+        coordinator._wake.set()
+        await until(lambda: len(unit.read_events) == 2)
+        assert unit.read_events[-1].address == 7599
+        assert coordinator._groups[0].due == 160
+    finally:
+        await coordinator.async_shutdown()

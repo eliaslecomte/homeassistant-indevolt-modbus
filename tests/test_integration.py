@@ -31,10 +31,7 @@ async def test_flow_and_duplicate(hass, unit):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], DATA)
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert result["data"] == DATA
-        assert result["options"] == {
-            "fast_poll_sensor": "acout_w_1284",
-            "fast_poll_interval": 3,
-        }
+        assert result["options"] == {}
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": "user"}, data=DATA
         )
@@ -225,3 +222,36 @@ async def test_diagnostics_before_setup(hass):
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics == {"setup_complete": False, "state": "not_loaded"}
     assert DATA["host"] not in str(diagnostics)
+
+
+async def test_polling_system_option_reload_stops_old_worker(hass, unit):
+    entry = MockConfigEntry(domain=DOMAIN, data=DATA, title="Indevolt")
+    entry.add_to_hass(hass)
+    with (
+        patch(f"{PREFIX}.async_get_unit", AsyncMock(return_value=unit)),
+        patch(f"{PREFIX}.async_release_unit", new_callable=AsyncMock) as release,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        old = entry.runtime_data
+        hass.config_entries.async_update_entry(entry, pref_disable_polling=True)
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        assert old._worker is None
+        assert old._unsubscribe_disconnect is None
+        unit.read_events.clear()
+        await hass.async_block_till_done()
+        assert not unit.read_events
+        assert release.await_count == 1
+        await entry.runtime_data.async_refresh()
+        assert unit.read_events
+        hass.config_entries.async_update_entry(entry, pref_disable_polling=False)
+        paused = entry.runtime_data
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        assert paused._worker is None
+        assert entry.runtime_data._worker is not None
+        resumed = entry.runtime_data
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        assert resumed._worker is None
+        assert release.await_count == 3
