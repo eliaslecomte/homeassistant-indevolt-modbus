@@ -20,7 +20,7 @@
   "requirements": [
     "indevolt-modbus==0.1.0"
   ],
-  "version": "0.2.10",
+  "version": "0.2.11",
   "zeroconf": [
     {
       "name": "igen_fw*",

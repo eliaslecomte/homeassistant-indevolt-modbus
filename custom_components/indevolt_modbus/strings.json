@@ -1411,7 +1411,7 @@
       "realtime_control_order_1150": {
         "name": "Real-time command",
         "state": {
-          "0": "Default",
+          "0": "Standby",
           "1": "Charge",
           "2": "Discharge"
         }

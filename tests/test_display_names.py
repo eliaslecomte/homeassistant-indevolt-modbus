@@ -40,7 +40,7 @@ async def test_english_translations_load(hass):
         "Charge/discharge schedule"
     )
     assert translations[f"{prefix}.select.realtime_control_order_1150.state.0"] == (
-        "Default"
+        "Standby"
     )
     assert translations[f"{prefix}.select.realtime_control_order_1150.state.2"] == (
         "Discharge"
